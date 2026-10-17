@@ -50,11 +50,11 @@ RUN git init -q RetroPie-Setup && cd RetroPie-Setup && \
     git fetch -q --depth=1 origin "${RETROPIE_SETUP_REF}" && \
     git checkout -q FETCH_HEAD && \
     sudo ./retropie_packages.sh setup basic_install
+# >>> packages (generated from packages.default by scripts/packages.sh: edit that file, not this block)
 # One layer per package: a package that fails to build does not discard the ones already built.
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-snes9x
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh dolphin
-# lr-flycast-dev builds upstream flyinghead/flycast. lr-flycast is the obsolete libretro fork and
-# no longer builds (RetroPie-Setup issue #4236: the maintainers recommend -dev).
+# lr-flycast-dev: upstream flyinghead/flycast; lr-flycast (the libretro fork) no longer builds (RetroPie-Setup #4236)
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-flycast-dev
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-mame2003
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-mame2015
@@ -64,15 +64,19 @@ RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-quicknes
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-parallel-n64
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-mupen64plus-next
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh scummvm
-# Commodore 64 (lr-vice: x64, x128, vic20, plus4): not part of basic_install on x86.
+# lr-vice: Commodore 64, 128, VIC-20, Plus/4: not part of basic_install on x86
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-vice
+USER root
+RUN mkdir -p /etc/retropie-docker && printf '%s\n' lr-snes9x dolphin lr-flycast-dev lr-mame2003 lr-mame2015 lr-mame2016 lr-pcsx-rearmed lr-quicknes lr-parallel-n64 lr-mupen64plus-next scummvm lr-vice > /etc/retropie-docker/packages
+# <<< packages
 
 USER root
 COPY --chmod=755 scripts/prepare-data.sh /usr/local/bin/prepare-data
 RUN /usr/local/bin/prepare-data && \
     test -x /usr/bin/emulationstation && \
-    test -s /opt/retropie/libretrocores/lr-snes9x/snes9x_libretro.so && \
-    test -x /opt/retropie/emulators/dolphin/bin/dolphin-emu && \
+    for p in $(cat /etc/retropie-docker/packages); do \
+        ls -d /opt/retropie/*/"$p" >/dev/null 2>&1 || { echo "package $p did not install"; exit 1; }; \
+    done && \
     test -z "$(find /usr /opt -name 'libnvidia-*' -o -name nvidia-smi)"
 COPY --from=diagnostics /usr/local/bin/gpu-check /usr/local/bin/gpu-check
 COPY --chmod=755 retropie/retropie-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

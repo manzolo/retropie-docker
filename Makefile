@@ -1,9 +1,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help packages packages-choose packages-check build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 help:
 	@echo 'make build / retropie-build   Build the single driver-agnostic :latest image'
 	@echo 'make wizard                  Configure, build and start interactively'
+	@echo 'make packages                List the emulators the next build installs (packages.local or packages.default)'
+	@echo 'make packages-choose         Pick emulators from a checklist (writes packages.local)'
+	@echo 'make packages-check          Validate package names against the pinned RetroPie-Setup'
 	@echo 'make retropie-start/stop/enter/logs'
 	@echo 'make test                    Verify clean image, GPU injection and deliberate failures'
 	@echo 'make test-static             Syntax, shellcheck, Dockerfile and compose checks (what CI runs)'
@@ -12,6 +15,12 @@ help:
 	@echo 'make status                  List current and legacy images (never remove them)'
 build build-stack retropie-build:
 	@./scripts/retropie.sh build
+packages:
+	@./scripts/packages.sh list
+packages-choose:
+	@./scripts/packages.sh choose
+packages-check:
+	@./scripts/packages.sh check
 wizard:
 	@BUILD='$(BUILD)' ./scripts/wizard.sh
 test:

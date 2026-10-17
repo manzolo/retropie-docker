@@ -145,23 +145,45 @@ image is published): the data directory is independent of the build.
 </details>
 
 <details>
-<summary><b>Emulators</b></summary>
+<summary><b>Emulators: choosing your own set</b></summary>
 
-`basic_install` from RetroPie-Setup (EmulationStation, RetroArch and the basic cores), then
-`lr-snes9x`, `dolphin`, `lr-flycast-dev`, `lr-mame2003`, `lr-mame2015`, `lr-mame2016`,
-`lr-pcsx-rearmed`, `lr-quicknes`, `lr-parallel-n64`, `lr-mupen64plus-next`, `scummvm` and `lr-vice`
-(Commodore 64).
-Each package is one `RUN` line in `retropie/Dockerfile`: add or remove lines to taste, and a
-package that fails to build does not discard the ones already built. `RETROPIE_SETUP_REF` pins
-the RetroPie-Setup commit; bump it deliberately and rebuild. Every system gets a default
-emulator (the first listed) so that EmulationStation can launch it.
+The image installs `basic_install` from RetroPie-Setup (EmulationStation, RetroArch and the basic
+cores) plus the packages listed in [`packages.default`](packages.default): `lr-snes9x`, `dolphin`,
+`lr-flycast-dev`, `lr-mame2003`, `lr-mame2015`, `lr-mame2016`, `lr-pcsx-rearmed`, `lr-quicknes`,
+`lr-parallel-n64`, `lr-mupen64plus-next`, `scummvm` and `lr-vice` (Commodore 64).
+
+To build a different set:
+
+```bash
+make packages-choose    # checklist of common emulators by system, writes packages.local
+make packages           # what the next build installs
+make packages-check     # every name exists in RetroPie-Setup (seconds, no build)
+make build
+```
+
+`packages.local` (ignored by git) wins over `packages.default`; you can also write it by hand,
+one RetroPie-Setup package per line, `#` for comments: any package of RetroPie-Setup works, not
+only those offered by the checklist ([`packages.catalog`](packages.catalog)). Each package is one
+Docker layer, in the order of the list: **append new packages at the end** and only they are
+built; removing or reordering a line rebuilds everything after it. A package that fails to build
+does not discard the ones before it. `make wizard` asks about the selection too. The checklist
+marks the cores that `basic_install` already builds on x86: listing one of them compiles it again
+in its own layer, which costs build time and gains nothing.
+
+The committed `retropie/Dockerfile` is generated from `packages.default` (the block between the
+`>>> packages` markers): after editing that file run `scripts/packages.sh sync`; `make test-static`
+fails if the two disagree. A `packages.local` build uses its own generated `build/Dockerfile`.
+`RETROPIE_SETUP_REF` pins the RetroPie-Setup commit; bump it deliberately and rebuild. Every
+system gets a default emulator (the first listed) so that EmulationStation can launch it, and
+systems added by a new package appear in an existing `es_systems.cfg` by themselves. BIOS files
+go in `data/BIOS/` as the RetroPie documentation of each system says.
 
 The **RetroPie menu inside EmulationStation** is mostly terminal programs (RetroPie-Setup, config
 editor, themes, runcommand, file manager, show IP): in the container they draw on the container's
 own terminal, which you cannot see, so launching them appears to do nothing. Only the RetroArch
 entry is graphical. Run them from a shell instead: `make retropie-enter`, then
 `sudo ~/RetroPie-Setup/retropie_setup.sh`. Packages installed that way live in the container
-layer and are lost when it is recreated: to keep an emulator, add it to the Dockerfile.
+layer and are lost when it is recreated: to keep an emulator, add it to your package list.
 </details>
 
 <details>
@@ -174,7 +196,9 @@ layer and are lost when it is recreated: to keep an emulator, add it to the Dock
   rejected: compute-only capabilities, no NVIDIA runtime, a fake expected driver version.
 - `make test-desktop` checks the PulseAudio connection and controller device access.
 - `make test-static` runs what CI runs: syntax, shellcheck, the Dockerfile installs no driver and
-  pins RetroPie-Setup, retired targets explain themselves, Compose renders. The GitHub workflow
+  pins RetroPie-Setup, its package block matches `packages.default`, a `packages.local` drives
+  its own Dockerfile, bad or unknown package names are refused, retired targets explain
+  themselves, Compose renders. The GitHub workflow
   also builds the diagnostics stage and checks that without a GPU the image says so (exit 2),
   and once a month (or on demand) builds the whole image and runs the data tests. GPU tests need
   a real machine: CI has no NVIDIA card and no Wayland desktop.
@@ -189,6 +213,8 @@ layer and are lost when it is recreated: to keep an emulator, add it to the Dock
 
 ```
 retropie/Dockerfile             graphics, diagnostics and RetroPie stages (one image)
+packages.default                emulators in the image (packages.local overrides, ignored by git)
+packages.catalog                what make packages-choose offers
 retropie/docker-compose.yml     the service; docker-compose.roms.yml adds a read-only ROM mount
 retropie/retropie-entrypoint.sh user mapping, first-start defaults, GPU/Wayland fallback
 scripts/                        launcher, wizard, GPU checks, tests, check-public

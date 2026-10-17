@@ -20,6 +20,9 @@ lines = [s for s in p.read_text().splitlines() if not s.startswith(('RETROPIE_DA
 lines += ['RETROPIE_DATA_DIR=' + sys.argv[1], 'RETROPIE_ROMS_DIR=' + sys.argv[2]]
 p.write_text('\n'.join(lines) + '\n')
 PY
+    echo "Emulators: $(./scripts/packages.sh list | tr '\n' ' ')"
+    read -r -p 'Change the emulator selection? [y/N]: ' selected
+    [[ ${selected,,} == y* ]] && ./scripts/packages.sh choose
     echo '1) Build and start  2) Build only  3) Start existing image  4) Exit'
     read -r -p 'Choice [1]: ' choice
     case ${choice:-1} in 1) BUILD=full;; 2) BUILD=retropie;; 3) BUILD=skip;; 4) exit 0;; *) exit 1;; esac
