@@ -105,6 +105,14 @@ Keep the container username equal to your native one if your configuration conta
 home paths (the default, `manzolo`, can be changed with the `CONTAINER_USERNAME` build argument).
 The native installation is not modified.
 
+Native RetroPie keeps RetroArch saves and states **next to the ROMs** (`savefile_directory = "default"`);
+the container keeps them in `data/saves` and `data/states`, found by game name. Copy them once:
+
+```bash
+find /path/to/roms -name '*.srm' -exec cp -pn {} data/saves/ \;
+find /path/to/roms -name '*.state*' -exec cp -pn {} data/states/ \;
+```
+
 One trap met while migrating: RetroArch only reads pad profiles from `autoconfig/<driver>/`
 (`udev/` on Linux) when that subdirectory exists. If your native setup mixed RetroPie's flat
 profiles with the libretro autoconfig pack (subdirectories), copy your own profile into
