@@ -159,6 +159,7 @@ make packages-choose    # checklist of common emulators by system, writes packag
 make packages           # what the next build installs
 make packages-check     # every name exists in RetroPie-Setup (seconds, no build)
 make build
+make update PKG=lr-vice # later: rebuild just that emulator from upstream, minutes
 ```
 
 `packages.local` (ignored by git) wins over `packages.default`; you can also write it by hand,
@@ -177,6 +178,15 @@ fails if the two disagree. A `packages.local` build uses its own generated `buil
 system gets a default emulator (the first listed) so that EmulationStation can launch it, and
 systems added by a new package appear in an existing `es_systems.cfg` by themselves. BIOS files
 go in `data/BIOS/` as the RetroPie documentation of each system says.
+
+**Updating emulators without a rebuild.** RetroPie-Setup builds each core from its upstream source
+at build time, so updating one means rebuilding only that layer. `make update PKG="lr-vice dolphin"`
+records the packages with a timestamp in `packages.update` (ignored by git) and builds: they are
+rebuilt on top of the image while everything else comes from the cache, so it takes minutes.
+Later builds keep the updated layers. The image grows by the size of the old copies until a fresh
+build (`make update-clear`, then `docker build --no-cache` or a bumped `RETROPIE_SETUP_REF`).
+`/etc/retropie-docker/updates` in the image lists what was updated and when. Updating packages
+from the RetroPie menu inside the running container is lost when the container is recreated.
 
 The **RetroPie menu inside EmulationStation** is mostly terminal programs (RetroPie-Setup, config
 editor, themes, runcommand, file manager, show IP): in the container they draw on the container's

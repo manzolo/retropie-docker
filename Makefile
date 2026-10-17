@@ -1,12 +1,14 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help packages packages-choose packages-check build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 help:
 	@echo 'make build / retropie-build   Build the single driver-agnostic :latest image'
 	@echo 'make wizard                  Configure, build and start interactively'
 	@echo 'make packages                List the emulators the next build installs (packages.local or packages.default)'
 	@echo 'make packages-choose         Pick emulators from a checklist (writes packages.local)'
 	@echo 'make packages-check          Validate package names against the pinned RetroPie-Setup'
+	@echo 'make update PKG="a b"        Rebuild these packages from upstream on top (minutes; packages.update)'
+	@echo 'make update-clear            Forget the updates (a fresh build folds them in)'
 	@echo 'make retropie-start/stop/enter/logs'
 	@echo 'make test                    Verify clean image, GPU injection and deliberate failures'
 	@echo 'make test-static             Syntax, shellcheck, Dockerfile and compose checks (what CI runs)'
@@ -21,6 +23,12 @@ packages-choose:
 	@./scripts/packages.sh choose
 packages-check:
 	@./scripts/packages.sh check
+update:
+	@test -n '$(PKG)' || { echo 'Usage: make update PKG="lr-vice dolphin"'; exit 1; }
+	@./scripts/packages.sh update $(PKG)
+	@./scripts/retropie.sh build
+update-clear:
+	@./scripts/packages.sh update-clear
 wizard:
 	@BUILD='$(BUILD)' ./scripts/wizard.sh
 test:

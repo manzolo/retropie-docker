@@ -5,12 +5,25 @@
 #   packages.sh sync              rewrite the block in retropie/Dockerfile from packages.default
 #   packages.sh check [FILE...]   every name exists in RetroPie-Setup at the pinned commit
 #   packages.sh choose            checklist from packages.catalog, writes packages.local
+#   packages.sh update PKG...     rebuild these packages from upstream on top of the image (packages.update)
+#   packages.sh update-clear      forget the updates (the next full rebuild folds them in anyway)
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 DOCKERFILE=retropie/Dockerfile
 BEGIN='# >>> packages (generated from packages.default by scripts/packages.sh: edit that file, not this block)'
 END='# <<< packages'
+
+UPDATE_FILE=packages.update
+
+# "name<TAB>stamp" for every update line; only when rendering the effective list (not packages.default)
+updates() {
+    [[ -z ${PACKAGES_FILE:-} && -f $UPDATE_FILE ]] || return 0
+    sed -E 's/\r$//' "$UPDATE_FILE" | while read -r name stamp _; do
+        [[ -z $name || $name == \#* ]] && continue
+        printf '%s\t%s\n' "$name" "$stamp"
+    done
+}
 
 source_file() {   # PACKAGES_FILE overrides (the static test renders packages.default on purpose)
     if [[ -n ${PACKAGES_FILE:-} ]]; then echo "$PACKAGES_FILE"
@@ -38,8 +51,17 @@ block() {
         names+=("$name")
     done < <(entries "$list")
     ((${#names[@]})) || { echo "$list lists no package" >&2; exit 1; }
+    local upd=()
+    while IFS=$'\t' read -r name stamp; do
+        [[ $name =~ ^[a-z0-9][a-z0-9.+-]*$ && $stamp =~ ^[0-9T:-]+$ ]] || { echo "invalid line in $UPDATE_FILE: $name $stamp" >&2; exit 1; }
+        printf '%s\n' "${names[@]}" | grep -qx -- "$name" || { echo "$UPDATE_FILE: $name is not in $list (add it there instead)" >&2; exit 1; }
+        ((${#upd[@]})) || echo "# Updates from $UPDATE_FILE: rebuilt from upstream on top, everything above comes from the cache"
+        echo "RUN : update $stamp && cd RetroPie-Setup && sudo ./retropie_packages.sh $name"
+        upd+=("$name@$stamp")
+    done < <(updates)
     echo 'USER root'
     printf "RUN mkdir -p /etc/retropie-docker && printf '%%s\\\\n' %s > /etc/retropie-docker/packages\n" "${names[*]}"
+    ((${#upd[@]})) && printf "RUN printf '%%s\\\\n' %s > /etc/retropie-docker/updates\n" "${upd[*]}"
     echo "$END"
 }
 
@@ -115,5 +137,23 @@ case ${1:-list} in
             done <<<"$chosen"
         } > packages.local
         echo "packages.local written ($(entries packages.local | wc -l) packages). make build to apply." ;;
-    *) echo 'Usage: packages.sh {list|dockerfile [OUT]|sync|check [FILE...]|choose}' >&2; exit 1 ;;
+    update)
+        shift; (($#)) || { echo 'Usage: packages.sh update PKG...' >&2; exit 1; }
+        mapfile -t current < <(entries "$(source_file)" | cut -f1)
+        for n in "$@"; do
+            printf '%s\n' "${current[@]}" | grep -qx -- "$n" || { echo "$n is not in $(source_file): add it to the list instead of updating it" >&2; exit 1; }
+        done
+        stamp=$(date +%Y-%m-%dT%H:%M:%S)
+        {
+            echo '# Packages rebuilt from upstream on top of the image (make update). Order matters like in the'
+            echo '# package list: a line rebuilds everything after it. make update-clear forgets them.'
+            # a package updated again moves to the end with its new stamp
+            [[ -f $UPDATE_FILE ]] && grep -vE '^[[:space:]]*(#|$)' "$UPDATE_FILE" | while read -r name old _; do
+                printf '%s\n' "$@" | grep -qx -- "$name" || echo "$name $old"
+            done
+            for n in "$@"; do echo "$n $stamp"; done
+        } > "$UPDATE_FILE.tmp" && mv "$UPDATE_FILE.tmp" "$UPDATE_FILE"
+        echo "$UPDATE_FILE: $* at $stamp. make build to apply." ;;
+    update-clear) rm -f "$UPDATE_FILE"; echo "$UPDATE_FILE removed: the next build uses the cached layers (a fresh build folds updates in)" ;;
+    *) echo 'Usage: packages.sh {list|dockerfile [OUT]|sync|check [FILE...]|choose|update PKG...|update-clear}' >&2; exit 1 ;;
 esac
