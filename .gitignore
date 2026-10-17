@@ -1,6 +1,7 @@
 # Local configuration
 .env
 packages.local
+packages.update
 docker-compose.override.yml
 retropie/docker-compose.override.yml
 

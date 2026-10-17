@@ -12,12 +12,13 @@ if [[ -f $ROOT/retropie/docker-compose.override.yml ]]; then
 fi
 case ${1:-help} in
     build)
-        # packages.local (your emulator selection) gets its own generated Dockerfile
+        # packages.local (your emulator selection) or packages.update get their own generated Dockerfile
         dockerfile=retropie/Dockerfile
-        if [[ -f packages.local ]]; then
+        if [[ -f packages.local || -f packages.update ]]; then
             dockerfile=build/Dockerfile
             ./scripts/packages.sh dockerfile "$dockerfile"
-            echo "Emulators from packages.local: $(./scripts/packages.sh list | tr '\n' ' ')"
+            [[ -f packages.local ]] && echo "Emulators from packages.local: $(./scripts/packages.sh list | tr '\n' ' ')"
+            [[ -f packages.update ]] && echo "Updates on top: $(grep -vE '^[[:space:]]*(#|$)' packages.update | tr '\n' ' ')"
         fi
         docker build -f "$dockerfile" --build-arg "CONTAINER_USERNAME=$CONTAINER_USERNAME" \
             --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . ;;

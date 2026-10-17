@@ -39,6 +39,25 @@ printf 'lr-snes9x; rm -rf /\n' > "$tmpd/packages.local"
 printf '# nothing\n' > "$tmpd/packages.local"
 "$tmpd/scripts/packages.sh" dockerfile >/dev/null 2>&1 && fail 'an empty package list was accepted'
 echo 'PASS: invalid or empty package lists are refused'
+# make update: a package rebuilt on top, after the whole list, keeps the cached prefix; never in the
+# committed Dockerfile; only packages of the list; a second update of the same package moves it last.
+rm -f "$tmpd/packages.local"
+(cd "$tmpd" && ./scripts/packages.sh update lr-quicknes >/dev/null && ./scripts/packages.sh update dolphin >/dev/null \
+    && ./scripts/packages.sh update lr-quicknes >/dev/null) || fail 'packages.sh update failed'
+out=$(cd "$tmpd" && ./scripts/packages.sh dockerfile)
+last_pkg=$(grep -n 'retropie_packages.sh lr-vice$' <<<"$out" | cut -d: -f1)
+upd=$(grep -n '^RUN : update .*retropie_packages.sh' <<<"$out")
+if [[ $(wc -l <<<"$upd") != 2 ]] || [[ ${upd%%:*} -le $last_pkg ]] || ! tail -1 <<<"$upd" | grep -q 'lr-quicknes$' \
+    || ! grep -q '> /etc/retropie-docker/updates$' <<<"$out"; then
+    fail "update layers are not appended after the package list: $upd"
+fi
+diff <(cd "$tmpd" && PACKAGES_FILE=packages.default ./scripts/packages.sh dockerfile) "$tmpd/retropie/Dockerfile" >/dev/null \
+    || fail 'packages.update leaked into the packages.default rendering'
+(cd "$tmpd" && ./scripts/packages.sh update lr-not-in-the-list >/dev/null 2>&1) && fail 'an update of a package outside the list was accepted'
+echo 'not-a-name; rm -rf / 2026-10-18T00:00:00' >> "$tmpd/packages.update"
+(cd "$tmpd" && ./scripts/packages.sh dockerfile >/dev/null 2>&1) && fail 'a malformed packages.update line was accepted'
+(cd "$tmpd" && ./scripts/packages.sh update-clear >/dev/null) && [[ ! -e $tmpd/packages.update ]] || fail 'update-clear left packages.update'
+echo 'PASS: make update appends rebuild layers after the list and stays out of the committed Dockerfile'
 if [[ ${SKIP_NETWORK:-0} != 1 ]] && git ls-remote -q https://github.com/RetroPie/RetroPie-Setup.git HEAD >/dev/null 2>&1; then
     ./scripts/packages.sh check packages.default packages.catalog
     printf 'lr-not-a-package\n' > "$tmpd/bogus.list"
