@@ -38,6 +38,20 @@ run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
     test -x /opt/retropie/emulators/dolphin/bin/dolphin-emu
     echo "PASS: defaults, user mapping and emulator paths"
 '
+# An es_systems.cfg from an older image must gain the systems the image has now, and keep its own.
+python3 - "$fixture/data/emulationstation/es_systems.cfg" <<'PY'
+import sys, xml.etree.ElementTree as ET
+p = sys.argv[1]; tree = ET.parse(p); root = tree.getroot()
+victim = next(s for s in root.findall('system') if s.findtext('name') == 'c64')
+root.remove(victim)
+keep = ET.SubElement(root, 'system'); ET.SubElement(keep, 'name').text = 'test-kept'; ET.SubElement(keep, 'path').text = '/tmp'
+tree.write(p, encoding='utf-8', xml_declaration=True)
+PY
+"${run[@]}" "$image" /bin/bash -euc '
+    grep -q "<name>c64</name>" /etc/emulationstation/es_systems.cfg
+    grep -q "<name>test-kept</name>" /etc/emulationstation/es_systems.cfg
+    echo "PASS: es_systems.cfg gained the missing c64 system and kept its own entries"
+'
 "${run[@]}" -e RETROPIE_EXTERNAL_ROMS=1 \
     --mount "type=bind,src=$fixture/external-roms,dst=/data/roms,readonly" \
     "$image" /bin/bash -euc '

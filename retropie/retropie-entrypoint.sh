@@ -26,6 +26,22 @@ for source in /usr/local/share/retropie-defaults/*; do
     fi
     gosu "$user" cp -r --update=none "$source/." "/data/$name/"
 done
+# An existing es_systems.cfg predates emulators added to the image later: append the systems it
+# lacks (never touching the ones it has), otherwise EmulationStation never shows the new system.
+if [[ -f /data/emulationstation/es_systems.cfg && -f /usr/local/share/retropie-defaults/emulationstation/es_systems.cfg ]]; then
+    gosu "$user" python3 - <<'PY' || echo "es_systems.cfg: merge of new systems skipped (see above)" >&2
+import xml.etree.ElementTree as ET
+dst = '/data/emulationstation/es_systems.cfg'
+img = ET.parse('/usr/local/share/retropie-defaults/emulationstation/es_systems.cfg').getroot()
+tree = ET.parse(dst); root = tree.getroot()
+have = {s.findtext('name') for s in root.findall('system')}
+new = [s for s in img.findall('system') if s.findtext('name') not in have]
+if new:
+    for s in new: root.append(s)
+    ET.indent(root, space='  '); tree.write(dst, encoding='utf-8', xml_declaration=True)
+    print('es_systems.cfg: added ' + ', '.join(s.findtext('name') for s in new))
+PY
+fi
 # Add device groups within the container; leave host permissions untouched.
 while read -r device_gid; do
     [[ -n $device_gid ]] || continue
