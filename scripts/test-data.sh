@@ -18,6 +18,9 @@ run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
     test "$(id -u)" = "$EXPECTED_UID"
     test -s /opt/retropie/configs/all/retroarch.cfg
     test -s /etc/emulationstation/es_systems.cfg
+    for cfg in /opt/retropie/configs/*/emulators.cfg; do
+        grep -q "^default" "$cfg" || { echo "FAIL: no default emulator in $cfg (runcommand would refuse to launch)"; exit 1; }
+    done
     test -d "$HOME/RetroPie/roms"
     test -d "$HOME/RetroPie/BIOS"
     test "$(readlink -f "$HOME/.emulationstation")" = /data/configs/all/emulationstation

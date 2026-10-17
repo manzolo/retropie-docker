@@ -9,6 +9,13 @@ move_data() {
     mv "$source" "$seed/$name"
     ln -s "/data/$name" "$source"
 }
+# A system whose module registers without a default (lr-flycast-dev does) makes runcommand exit
+# with "No default emulator found": give every system a default, the first emulator listed.
+for cfg in /opt/retropie/configs/*/emulators.cfg; do
+    grep -q '^default' "$cfg" && continue
+    first=$(grep -oE '^[A-Za-z0-9_.+-]+ *=' "$cfg" | head -1 | tr -d ' =')
+    [ -n "$first" ] && printf 'default = "%s"\n' "$first" >> "$cfg"
+done
 move_data /opt/retropie/configs configs
 move_data /etc/emulationstation emulationstation
 move_data "$HOME/RetroPie/roms" roms
