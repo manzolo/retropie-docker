@@ -56,7 +56,9 @@ diff <(cd "$tmpd" && PACKAGES_FILE=packages.default ./scripts/packages.sh docker
 (cd "$tmpd" && ./scripts/packages.sh update lr-not-in-the-list >/dev/null 2>&1) && fail 'an update of a package outside the list was accepted'
 echo 'not-a-name; rm -rf / 2026-10-18T00:00:00' >> "$tmpd/packages.update"
 (cd "$tmpd" && ./scripts/packages.sh dockerfile >/dev/null 2>&1) && fail 'a malformed packages.update line was accepted'
-(cd "$tmpd" && ./scripts/packages.sh update-clear >/dev/null) && [[ ! -e $tmpd/packages.update ]] || fail 'update-clear left packages.update'
+if ! (cd "$tmpd" && ./scripts/packages.sh update-clear >/dev/null) || [[ -e $tmpd/packages.update ]]; then
+    fail 'update-clear left packages.update'
+fi
 echo 'PASS: make update appends rebuild layers after the list and stays out of the committed Dockerfile'
 if [[ ${SKIP_NETWORK:-0} != 1 ]] && git ls-remote -q https://github.com/RetroPie/RetroPie-Setup.git HEAD >/dev/null 2>&1; then
     ./scripts/packages.sh check packages.default packages.catalog
