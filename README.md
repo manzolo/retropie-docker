@@ -154,6 +154,13 @@ Each package is one `RUN` line in `retropie/Dockerfile`: add or remove lines to 
 package that fails to build does not discard the ones already built. `RETROPIE_SETUP_REF` pins
 the RetroPie-Setup commit; bump it deliberately and rebuild. Every system gets a default
 emulator (the first listed) so that EmulationStation can launch it.
+
+The **RetroPie menu inside EmulationStation** is mostly terminal programs (RetroPie-Setup, config
+editor, themes, runcommand, file manager, show IP): in the container they draw on the container's
+own terminal, which you cannot see, so launching them appears to do nothing. Only the RetroArch
+entry is graphical. Run them from a shell instead: `make retropie-enter`, then
+`sudo ~/RetroPie-Setup/retropie_setup.sh`. Packages installed that way live in the container
+layer and are lost when it is recreated: to keep an emulator, add it to the Dockerfile.
 </details>
 
 <details>
