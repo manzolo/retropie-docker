@@ -12,7 +12,14 @@ if [[ -f $ROOT/retropie/docker-compose.override.yml ]]; then
 fi
 case ${1:-help} in
     build)
-        docker build -f retropie/Dockerfile --build-arg "CONTAINER_USERNAME=$CONTAINER_USERNAME" \
+        # packages.local (your emulator selection) gets its own generated Dockerfile
+        dockerfile=retropie/Dockerfile
+        if [[ -f packages.local ]]; then
+            dockerfile=build/Dockerfile
+            ./scripts/packages.sh dockerfile "$dockerfile"
+            echo "Emulators from packages.local: $(./scripts/packages.sh list | tr '\n' ' ')"
+        fi
+        docker build -f "$dockerfile" --build-arg "CONTAINER_USERNAME=$CONTAINER_USERNAME" \
             --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . ;;
     start)
         [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]] || { echo 'Missing Wayland socket' >&2; exit 1; }

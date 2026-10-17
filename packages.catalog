@@ -1,0 +1,41 @@
+# Packages offered by `make packages-choose`: package|systems|note.
+# Any other RetroPie-Setup package can still be written by hand in packages.local.
+# "already in basic_install": on x86 the base install builds it anyway (section main at the pinned
+# commit); listing it builds it a second time in its own layer, which only costs build time.
+lr-snes9x|Super Nintendo|already in basic_install; accurate, fast; the usual SNES choice
+lr-snes9x2010|Super Nintendo|lighter, for older CPUs
+lr-bsnes|Super Nintendo|most accurate, heavy
+lr-quicknes|NES|fast
+lr-nestopia|NES, Famicom Disk System|already in basic_install; accurate
+lr-fceumm|NES|already in basic_install; good compatibility
+lr-gambatte|Game Boy, Game Boy Color|already in basic_install; accurate
+lr-mgba|Game Boy Advance|already in basic_install; accurate
+lr-genesis-plus-gx|Mega Drive, Master System, Game Gear, Mega-CD|already in basic_install; the usual Sega 8/16-bit choice
+lr-picodrive|Mega Drive, 32X, Mega-CD|already in basic_install; fast, the only 32X core
+lr-beetle-saturn|Saturn|accurate, needs a strong CPU
+lr-flycast-dev|Dreamcast, Naomi, Atomiswave|upstream Flycast
+lr-pcsx-rearmed|PlayStation|fast
+lr-beetle-psx|PlayStation|already in basic_install; accurate, heavier
+lr-ppsspp|PSP|
+lr-parallel-n64|Nintendo 64|already in basic_install
+lr-mupen64plus-next|Nintendo 64|the usual N64 choice
+dolphin|GameCube, Wii|standalone
+lr-desmume|Nintendo DS|
+lr-mame2003|Arcade (MAME 0.78 sets)|already in basic_install
+lr-mame2003-plus|Arcade (MAME 0.78 sets plus)|
+lr-mame2015|Arcade (MAME 0.160 sets)|
+lr-mame2016|Arcade (MAME 0.174 sets)|
+lr-fbneo|Arcade, Neo Geo (FinalBurn Neo sets)|already in basic_install
+lr-beetle-pce-fast|PC Engine, TurboGrafx-16, CD|already in basic_install
+lr-stella|Atari 2600|
+lr-atari800|Atari 800, 5200|already in basic_install
+lr-prosystem|Atari 7800|already in basic_install
+lr-handy|Atari Lynx|already in basic_install
+lr-vice|Commodore 64, 128, VIC-20, Plus/4|
+lr-puae|Amiga|
+lr-fuse|ZX Spectrum|already in basic_install
+lr-caprice32|Amstrad CPC|already in basic_install
+lr-bluemsx|MSX, MSX2, ColecoVision|
+lr-dosbox-pure|MS-DOS|
+scummvm|ScummVM adventures|standalone
+lr-scummvm|ScummVM adventures|libretro version

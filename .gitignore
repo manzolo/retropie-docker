@@ -1,5 +1,6 @@
 # Local configuration
 .env
+packages.local
 docker-compose.override.yml
 retropie/docker-compose.override.yml
 
@@ -9,6 +10,7 @@ data/
 retropie/mount/
 
 # Logs and build artefacts
+build/
 logs/
 *.log
 *.tar.gz

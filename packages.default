@@ -1,0 +1,18 @@
+# Emulators built into the image, one RetroPie-Setup package per line, in build order.
+# Each line becomes one Dockerfile layer: append new packages at the end, so that only they
+# are built; removing or reordering a line rebuilds everything after it.
+# To choose your own set, copy this file to packages.local (ignored by git) or run
+# `make packages-choose`. `make packages-check` validates the names against RetroPie-Setup.
+# A comment after a package is copied into the Dockerfile above its line.
+lr-snes9x
+dolphin
+lr-flycast-dev      # upstream flyinghead/flycast; lr-flycast (the libretro fork) no longer builds (RetroPie-Setup #4236)
+lr-mame2003
+lr-mame2015
+lr-mame2016
+lr-pcsx-rearmed
+lr-quicknes
+lr-parallel-n64
+lr-mupen64plus-next
+scummvm
+lr-vice             # Commodore 64, 128, VIC-20, Plus/4: not part of basic_install on x86

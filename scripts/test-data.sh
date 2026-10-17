@@ -24,8 +24,11 @@ run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
     test -d "$HOME/RetroPie/roms"
     test -d "$HOME/RetroPie/BIOS"
     test "$(readlink -f "$HOME/.emulationstation")" = /data/configs/all/emulationstation
-    test "$(readlink -f "$HOME/.config/dolphin-emu")" = /data/configs/gc/Config
-    test "$(readlink -f "$HOME/.local/share/dolphin-emu")" = /data/configs/gc/local
+    has() { grep -qx "$1" /etc/retropie-docker/packages; }
+    if has dolphin; then
+        test "$(readlink -f "$HOME/.config/dolphin-emu")" = /data/configs/gc/Config
+        test "$(readlink -f "$HOME/.local/share/dolphin-emu")" = /data/configs/gc/local
+    fi
     grep -Fx "savefile_directory = \"/data/saves\"" /data/configs/all/retroarch.cfg
     grep -Fx "savestate_directory = \"/data/states\"" /data/configs/all/retroarch.cfg
     printf "known-save" > /data/saves/probe.srm
@@ -34,23 +37,29 @@ run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
     mkdir -p "$HOME/.local/share/dolphin-emu/GC"
     printf "known-card" > "$HOME/.local/share/dolphin-emu/GC/probe.raw"
     printf "# retained custom setting\n" >> /data/configs/all/retroarch.cfg
-    test -s /opt/retropie/libretrocores/lr-snes9x/snes9x_libretro.so
-    test -x /opt/retropie/emulators/dolphin/bin/dolphin-emu
+    for p in $(cat /etc/retropie-docker/packages); do
+        ls -d /opt/retropie/*/"$p" >/dev/null 2>&1 || { echo "FAIL: package $p is listed but not installed"; exit 1; }
+    done
+    if has lr-snes9x; then test -s /opt/retropie/libretrocores/lr-snes9x/snes9x_libretro.so; fi
+    if has dolphin; then test -x /opt/retropie/emulators/dolphin/bin/dolphin-emu; fi
     echo "PASS: defaults, user mapping and emulator paths"
 '
 # An es_systems.cfg from an older image must gain the systems the image has now, and keep its own.
-python3 - "$fixture/data/emulationstation/es_systems.cfg" <<'PY'
+# The victim is the last system: whatever the package selection, the image has it.
+victim=$(python3 - "$fixture/data/emulationstation/es_systems.cfg" <<'PY'
 import sys, xml.etree.ElementTree as ET
 p = sys.argv[1]; tree = ET.parse(p); root = tree.getroot()
-victim = next(s for s in root.findall('system') if s.findtext('name') == 'c64')
+victim = root.findall('system')[-1]
+print(victim.findtext('name'))
 root.remove(victim)
 keep = ET.SubElement(root, 'system'); ET.SubElement(keep, 'name').text = 'test-kept'; ET.SubElement(keep, 'path').text = '/tmp'
 tree.write(p, encoding='utf-8', xml_declaration=True)
 PY
-"${run[@]}" "$image" /bin/bash -euc '
-    grep -q "<name>c64</name>" /etc/emulationstation/es_systems.cfg
+)
+"${run[@]}" -e "VICTIM=$victim" "$image" /bin/bash -euc '
+    grep -q "<name>$VICTIM</name>" /etc/emulationstation/es_systems.cfg
     grep -q "<name>test-kept</name>" /etc/emulationstation/es_systems.cfg
-    echo "PASS: es_systems.cfg gained the missing c64 system and kept its own entries"
+    echo "PASS: es_systems.cfg gained the missing $VICTIM system and kept its own entries"
 '
 "${run[@]}" -e RETROPIE_EXTERNAL_ROMS=1 \
     --mount "type=bind,src=$fixture/external-roms,dst=/data/roms,readonly" \
