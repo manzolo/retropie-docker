@@ -173,6 +173,11 @@ layer and are lost when it is recreated: to keep an emulator, add it to the Dock
   persistence work across container recreation. It also requires three deliberate failures to be
   rejected: compute-only capabilities, no NVIDIA runtime, a fake expected driver version.
 - `make test-desktop` checks the PulseAudio connection and controller device access.
+- `make test-static` runs what CI runs: syntax, shellcheck, the Dockerfile installs no driver and
+  pins RetroPie-Setup, retired targets explain themselves, Compose renders. The GitHub workflow
+  also builds the diagnostics stage and checks that without a GPU the image says so (exit 2),
+  and once a month (or on demand) builds the whole image and runs the data tests. GPU tests need
+  a real machine: CI has no NVIDIA card and no Wayland desktop.
 - `make check-public` scans the whole git history for game data, secrets and private hosts,
   after proving on a throwaway repository that an injected BIOS is rejected.
 - [doc/driver-agnostic/manual-test.md](doc/driver-agnostic/manual-test.md): the gameplay

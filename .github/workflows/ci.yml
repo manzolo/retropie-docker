@@ -1,0 +1,74 @@
+name: CI
+
+# GitHub runners have no NVIDIA GPU and no Wayland desktop, so the GPU tests (make test) only run
+# on a real machine. What CI can prove: the scripts are sound, the history carries no game data,
+# the image stays driver-free and degrades honestly without a GPU, and (on demand or monthly) the
+# whole recipe still builds from the pinned RetroPie-Setup and passes the data tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 4 1 * *"   # monthly: does the recipe still build?
+  workflow_dispatch:
+    inputs:
+      full_build:
+        description: "Build the whole image (hours)"
+        type: boolean
+        default: false
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # check-public scans every ref
+      - name: Static checks
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q shellcheck
+          make test-static
+      - name: No game data anywhere in the history
+        run: make check-public
+
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the graphics + diagnostics stages (no emulators)
+        run: docker build --target diagnostics -t retropie-diagnostics -f retropie/Dockerfile .
+      - name: Image contains no NVIDIA driver files
+        run: |
+          files=$(docker run --rm --entrypoint sh retropie-diagnostics -c 'find / -xdev \( -name "libnvidia-*" -o -name nvidia-smi \) -print')
+          test -z "$files" || { echo "driver files baked into the image: $files"; exit 1; }
+      - name: Without a GPU the checks say so (exit 2), never claim NVIDIA
+        run: |
+          set +e
+          out=$(docker run --rm --entrypoint /usr/local/bin/gpu-check retropie-diagnostics driver 2>&1); rc=$?
+          echo "$out"
+          [ "$rc" = 2 ] && [[ $out == *"falling back to Mesa"* ]] || { echo "expected exit 2 with the Mesa fallback message, got $rc"; exit 1; }
+          out=$(docker run --rm --entrypoint /usr/local/bin/gpu-check retropie-diagnostics graphics 2>&1); rc=$?
+          echo "$out"
+          [ "$rc" = 2 ] || { echo "graphics check must exit 2 without a GPU, got $rc"; exit 1; }
+
+  full-build:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space on the runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1
+      - name: Build the whole image from the pinned RetroPie-Setup
+        run: docker build -t manzolo/retropie:latest -f retropie/Dockerfile .
+      - name: Data tests (no GPU needed: defaults, persistence, es_systems merge, read-only ROMs)
+        run: |
+          export PUID=$(id -u) PGID=$(id -g) XDG_RUNTIME_DIR=/tmp
+          ./scripts/test-data.sh
+      - name: Image contains no NVIDIA driver files
+        run: |
+          files=$(docker run --rm --runtime=runc --entrypoint sh manzolo/retropie:latest -c 'find / -xdev \( -name "libnvidia-*" -o -name nvidia-smi \) -print')
+          test -z "$files" || { echo "driver files baked into the image: $files"; exit 1; }

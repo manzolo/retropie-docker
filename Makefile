@@ -1,11 +1,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help build build-stack retropie-build wizard test test-desktop check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 help:
 	@echo 'make build / retropie-build   Build the single driver-agnostic :latest image'
 	@echo 'make wizard                  Configure, build and start interactively'
 	@echo 'make retropie-start/stop/enter/logs'
 	@echo 'make test                    Verify clean image, GPU injection and deliberate failures'
+	@echo 'make test-static             Syntax, shellcheck, Dockerfile and compose checks (what CI runs)'
 	@echo 'make check-nvidia            Diagnose runtime graphics'
 	@echo 'make check-public            Refuse game data, secrets or private hosts anywhere in git history'
 	@echo 'make status                  List current and legacy images (never remove them)'
@@ -18,6 +19,8 @@ test:
 	@./scripts/test-data.sh
 test-desktop:
 	@./scripts/test-desktop.sh
+test-static:
+	@./scripts/test-static.sh
 check-public:
 	@./scripts/check-public.sh --self-test
 	@./scripts/check-public.sh
