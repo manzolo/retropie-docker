@@ -115,6 +115,12 @@ Keep the container username equal to your native one if your configuration conta
 home paths (the default, `manzolo`, can be changed with the `CONTAINER_USERNAME` build argument).
 The native installation is not modified.
 
+One trap met while migrating: RetroArch only reads pad profiles from `autoconfig/<driver>/`
+(`udev/` on Linux) when that subdirectory exists. If your native setup mixed RetroPie's flat
+profiles with the libretro autoconfig pack (subdirectories), copy your own profile into
+`data/configs/all/retroarch/autoconfig/udev/`, or the stock profile wins and your hotkeys are lost.
+`retroarch --verbose` prints which profile was configured.
+
 ## How the GPU works
 
 The image ships only the generic loaders (GLVND, EGL, Vulkan, GBM, Wayland client libraries)
