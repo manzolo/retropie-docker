@@ -149,7 +149,8 @@ image is published): the data directory is independent of the build.
 
 `basic_install` from RetroPie-Setup (EmulationStation, RetroArch and the basic cores), then
 `lr-snes9x`, `dolphin`, `lr-flycast-dev`, `lr-mame2003`, `lr-mame2015`, `lr-mame2016`,
-`lr-pcsx-rearmed`, `lr-quicknes`, `lr-parallel-n64`, `lr-mupen64plus-next` and `scummvm`.
+`lr-pcsx-rearmed`, `lr-quicknes`, `lr-parallel-n64`, `lr-mupen64plus-next`, `scummvm` and `lr-vice`
+(Commodore 64).
 Each package is one `RUN` line in `retropie/Dockerfile`: add or remove lines to taste, and a
 package that fails to build does not discard the ones already built. `RETROPIE_SETUP_REF` pins
 the RetroPie-Setup commit; bump it deliberately and rebuild. Every system gets a default

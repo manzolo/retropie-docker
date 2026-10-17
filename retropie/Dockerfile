@@ -64,6 +64,8 @@ RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-quicknes
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-parallel-n64
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-mupen64plus-next
 RUN cd RetroPie-Setup && sudo ./retropie_packages.sh scummvm
+# Commodore 64 (lr-vice: x64, x128, vic20, plus4): not part of basic_install on x86.
+RUN cd RetroPie-Setup && sudo ./retropie_packages.sh lr-vice
 
 USER root
 COPY --chmod=755 scripts/prepare-data.sh /usr/local/bin/prepare-data
