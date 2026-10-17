@@ -64,7 +64,7 @@ jobs:
           df -h / | tail -1
       - name: Build the whole image from the pinned RetroPie-Setup
         run: docker build -t manzolo/retropie:latest -f retropie/Dockerfile .
-      - name: Data tests (no GPU needed: defaults, persistence, es_systems merge, read-only ROMs)
+      - name: "Data tests, no GPU needed: defaults, persistence, es_systems merge, read-only ROMs"
         run: |
           export PUID=$(id -u) PGID=$(id -g) XDG_RUNTIME_DIR=/tmp
           ./scripts/test-data.sh
