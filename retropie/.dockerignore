@@ -1,0 +1,69 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Docker files (not needed in build context)
+docker-compose*.yml
+.dockerignore
+Dockerfile*
+
+# Documentation
+README.md
+CLAUDE.md
+*.md
+doc/
+
+# Build artifacts and logs
+logs/
+*.log
+
+# Persistent data (this should be mounted, not copied)
+mount/
+roms/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Makefile (not needed in container)
+Makefile*
+
+# Scripts directory (not needed at build time)
+scripts/
+
+# Override file
+docker-compose.override.yml
+
+# Claude
+.claude/

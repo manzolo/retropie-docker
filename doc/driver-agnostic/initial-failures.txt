@@ -1,0 +1,108 @@
+$ docker build --progress=plain -f retropie/Dockerfile -t manzolo/retropie:latest .
+First attempt, relevant verbatim output (full log: /tmp/retropie-build.log):
+#10 18.53 Module 'splashscreen' is not available for your system (x86_64)
+#10 18.53 Errors:
+#10 18.53 Can't install/update retroarch - Not connected to the Internet
+#10 18.53 Can't install/update emulationstation - Not connected to the Internet
+#10 18.53 Can't install/update kmsxx - Not connected to the Internet
+#10 18.53 Can't install/update joy2key - Not connected to the Internet
+#10 18.53 Can't install/update mupen64plus - Not connected to the Internet
+#10 18.53 Can't install/update lr-atari800 - Not connected to the Internet
+#10 18.53 Can't install/update lr-beetle-ngp - Not connected to the Internet
+#10 18.53 Can't install/update lr-beetle-pce-fast - Not connected to the Internet
+#10 18.53 Can't install/update lr-beetle-psx - Not connected to the Internet
+#10 18.53 Can't install/update lr-beetle-supergrafx - Not connected to the Internet
+#10 18.53 Can't install/update lr-caprice32 - Not connected to the Internet
+#10 18.53 Can't install/update lr-fbneo - Not connected to the Internet
+#10 18.53 Can't install/update lr-fceumm - Not connected to the Internet
+#10 18.53 Can't install/update lr-fuse - Not connected to the Internet
+#10 18.53 Can't install/update lr-gambatte - Not connected to the Internet
+#10 18.53 Can't install/update lr-genesis-plus-gx - Not connected to the Internet
+#10 18.53 Can't install/update lr-handy - Not connected to the Internet
+#10 18.53 Can't install/update lr-mame2003 - Not connected to the Internet
+#10 18.53 Can't install/update lr-mgba - Not connected to the Internet
+#10 18.53 Can't install/update lr-mupen64plus - Not connected to the Internet
+#10 18.53 Can't install/update lr-nestopia - Not connected to the Internet
+#10 18.53 Can't install/update lr-parallel-n64 - Not connected to the Internet
+#10 18.53 Can't install/update lr-picodrive - Not connected to the Internet
+#10 18.53 Can't install/update lr-prosystem - Not connected to the Internet
+#10 18.53 Can't install/update lr-snes9x - Not connected to the Internet
+#10 18.53 Can't install/update lr-stella2014 - Not connected to the Internet
+#10 18.53 Can't install/update lr-vba-next - Not connected to the Internet
+#10 18.53 Can't install/update lr-vecx - Not connected to the Internet
+exit=1
+
+Initial ctypes-based inventory attempt (replaced with ldd dependency resolution):
+Testing image: sha256:ac4d92d73872ee44e7edef8af7c3e8e085d36531de5865fe30a763a343bf9a63
+Image ID: sha256:ac4d92d73872ee44e7edef8af7c3e8e085d36531de5865fe30a763a343bf9a63
+PASS: clean image, 0 libnvidia-* / nvidia-smi files (runtime=runc)
+Host driver: 615.71.09
+Container driver: 615.71.09
+LOAD: libGLX_nvidia.so.0
+LOAD: libEGL_nvidia.so.0
+LOAD: /usr/share/glvnd/egl_vendor.d/10_nvidia.json -> libEGL_nvidia.so.0
+LOAD: /usr/share/egl/egl_external_platform.d/09_nvidia_wayland2.json -> libnvidia-egl-wayland2.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json -> libnvidia-egl-wayland.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json -> libnvidia-egl-gbm.so.1
+LOAD: /etc/vulkan/icd.d/nvidia_icd.json -> libGLX_nvidia.so.0
+LOAD: /usr/lib/x86_64-linux-gnu/gbm/nvidia-drm_gbm.so -> /usr/lib/x86_64-linux-gnu/libnvidia-allocator.so.615.71.09
+corrupted size vs. prev_size while consolidating
+/usr/local/bin/gpu-check: line 5:    57 Aborted                 (core dumped) python3 - <<'PY'
+import ctypes, glob, json, os
+patterns = [
+    '/usr/share/glvnd/egl_vendor.d/10_nvidia.json',
+    '/usr/share/egl/egl_external_platform.d/*nvidia*wayland*.json',
+    '/usr/share/egl/egl_external_platform.d/*nvidia*gbm*.json',
+    '/etc/vulkan/icd.d/*nvidia*.json',
+]
+try:
+    for library in ['libGLX_nvidia.so.0', 'libEGL_nvidia.so.0']:
+        ctypes.CDLL(library)
+        print('LOAD:', library)
+    for pattern in patterns:
+        paths = glob.glob(pattern)
+        if not paths:
+            raise RuntimeError('missing injected graphics manifest: ' + pattern)
+        for path in paths:
+            library = json.load(open(path))['ICD']['library_path']
+            ctypes.CDLL(library)
+            print('LOAD:', path, '->', library)
+    backends = glob.glob('/usr/lib/*/gbm/nvidia-drm_gbm.so')
+    if not backends:
+        raise RuntimeError('missing injected NVIDIA GBM backend')
+    for path in backends:
+        ctypes.CDLL(path)
+        print('LOAD:', path, '->', os.path.realpath(path))
+except (OSError, ValueError, KeyError, RuntimeError) as error:
+    raise SystemExit('FAIL: NVIDIA graphics injection incomplete: ' + str(error))
+PY
+
+exit=134
+
+Initial compute-only negative test exposed JIT-CDI behavior:
+Testing image: sha256:afebc1bf89cea4d78a0266ecd659670c6b3b0261df3779e20ff59781f2542c03
+Image ID: sha256:afebc1bf89cea4d78a0266ecd659670c6b3b0261df3779e20ff59781f2542c03
+PASS: clean image, 0 libnvidia-* / nvidia-smi files (runtime=runc)
+Host driver: 615.71.09
+Container driver: 615.71.09
+LOAD: libGLX_nvidia.so.0
+LOAD: libEGL_nvidia.so.0
+LOAD: /usr/share/glvnd/egl_vendor.d/10_nvidia.json -> libEGL_nvidia.so.0
+LOAD: /usr/share/egl/egl_external_platform.d/09_nvidia_wayland2.json -> libnvidia-egl-wayland2.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json -> libnvidia-egl-wayland.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json -> libnvidia-egl-gbm.so.1
+LOAD: /etc/vulkan/icd.d/nvidia_icd.json -> libGLX_nvidia.so.0
+LOAD: /usr/lib/x86_64-linux-gnu/gbm/nvidia-drm_gbm.so -> /usr/lib/x86_64-linux-gnu/libnvidia-allocator.so.615.71.09
+Container driver: 615.71.09
+Container driver: 615.71.09
+LOAD: libGLX_nvidia.so.0
+LOAD: libEGL_nvidia.so.0
+LOAD: /usr/share/glvnd/egl_vendor.d/10_nvidia.json -> libEGL_nvidia.so.0
+LOAD: /usr/share/egl/egl_external_platform.d/09_nvidia_wayland2.json -> libnvidia-egl-wayland2.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json -> libnvidia-egl-wayland.so.1
+LOAD: /usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json -> libnvidia-egl-gbm.so.1
+LOAD: /etc/vulkan/icd.d/nvidia_icd.json -> libGLX_nvidia.so.0
+LOAD: /usr/lib/x86_64-linux-gnu/gbm/nvidia-drm_gbm.so -> /usr/lib/x86_64-linux-gnu/libnvidia-allocator.so.615.71.09
+FAIL: Wayland socket unavailable
+FAIL: compute-only graphics: expected exit 1 containing 'NVIDIA graphics injection incomplete', got exit 1
+exit=1

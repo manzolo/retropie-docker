@@ -1,0 +1,6 @@
+# Copy to docker-compose.override.yml for local options; the launcher loads it last.
+services:
+  retropie-service:
+    shm_size: 1G
+    # command: ["/bin/bash"]
+    # Use RETROPIE_ROMS_DIR in .env for a read-only external ROM collection.

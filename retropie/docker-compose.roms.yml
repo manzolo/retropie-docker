@@ -1,0 +1,10 @@
+# Added by the launcher only when RETROPIE_ROMS_DIR is set.
+services:
+  retropie-service:
+    volumes:
+      - type: bind
+        source: ${RETROPIE_ROMS_DIR:?Set RETROPIE_ROMS_DIR to an existing ROM directory}
+        target: /data/roms
+        read_only: true
+        bind:
+          create_host_path: false

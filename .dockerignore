@@ -1,0 +1,14 @@
+**/.git
+**/.env
+**/.env.*
+**/mount
+data
+**/logs
+**/*.log
+**/.cache
+doc
+**/.aws
+**/.ssh
+**/.codex
+**/.agents
+**/.claude

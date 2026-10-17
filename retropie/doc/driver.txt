@@ -1,0 +1,3 @@
+Driver libraries are injected by NVIDIA Container Toolkit at container creation.
+Do not install libnvidia-* packages or a driver PPA inside this image.
+Run make check-nvidia from the repository root. See README.md for host prerequisites.

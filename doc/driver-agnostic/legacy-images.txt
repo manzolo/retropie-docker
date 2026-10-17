@@ -1,0 +1,12 @@
+manzolo/retropie:latest-nvidia580 45fd54c2c98a 3GB
+manzolo/ubuntu-nvidia:latest-nvidia580 00a1c04d3fe2 672MB
+manzolo/retropie:latest-nvidia575 c6ebbc676bf0 3GB
+manzolo/ubuntu-nvidia:latest-nvidia575 e30d5e811e12 672MB
+manzolo/retropie:latest-nvidia570 1b5e4883a72f 3GB
+manzolo/ubuntu-nvidia:latest-nvidia570 c85dde290efe 672MB
+manzolo/retropie:latest-nvidia550 cb43e81c0c8b 3GB
+manzolo/ubuntu-nvidia:latest-nvidia550 5d9b249755a6 672MB
+manzolo/retropie:latest-nvidia535 f40bd52ac9dd 3GB
+manzolo/ubuntu-nvidia:latest-nvidia535 5857e9df9f7c 672MB
+manzolo/retropie:latest-nvidia595 aa93eee9450c 3GB
+manzolo/ubuntu-nvidia:latest-nvidia595 4cd01ee83f40 672MB

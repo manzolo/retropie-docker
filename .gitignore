@@ -1,0 +1,24 @@
+# Local configuration
+.env
+docker-compose.override.yml
+retropie/docker-compose.override.yml
+
+# Game data: ROMs, BIOS, saves, states and generated configuration live outside git.
+# The default data directory and the old mount directory are never committed.
+data/
+retropie/mount/
+
+# Logs and build artefacts
+logs/
+*.log
+*.tar.gz
+
+# Editors and caches
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+__pycache__/
+*.pyc
+.cache/

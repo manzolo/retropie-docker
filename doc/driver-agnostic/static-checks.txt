@@ -1,0 +1,126 @@
+$ bash -n scripts/common.sh scripts/retropie.sh scripts/wizard.sh scripts/gpu-check.sh scripts/prepare-data.sh scripts/check-nvidia.sh scripts/test-driver-agnostic.sh scripts/test-data.sh retropie/retropie-entrypoint.sh
+exit=0
+
+$ shellcheck -x scripts/common.sh scripts/retropie.sh scripts/wizard.sh scripts/gpu-check.sh scripts/prepare-data.sh scripts/check-nvidia.sh scripts/test-driver-agnostic.sh scripts/test-data.sh retropie/retropie-entrypoint.sh
+exit=0
+
+$ make base-build-nvidia-615 retropie-build-nvidia-595 start-nvidia-580
+base-build-nvidia-615 is retired: NVIDIA libraries now come from the host runtime. Use make build / retropie-start / retropie-push (:latest).
+retropie-build-nvidia-595 is retired: NVIDIA libraries now come from the host runtime. Use make build / retropie-start / retropie-push (:latest).
+start-nvidia-580 is retired: NVIDIA libraries now come from the host runtime. Use make build / retropie-start / retropie-push (:latest).
+exit=0
+
+$ make -C retropie build-nvidia-535
+make: Entering directory '/home/<user>/Workspaces/docker/retropie-docker/retropie'
+make[1]: Entering directory '/home/<user>/Workspaces/docker/retropie-docker'
+build-nvidia-535 is retired: NVIDIA libraries now come from the host runtime. Use make build / retropie-start / retropie-push (:latest).
+make[1]: Leaving directory '/home/<user>/Workspaces/docker/retropie-docker'
+make: Leaving directory '/home/<user>/Workspaces/docker/retropie-docker/retropie'
+exit=0
+
+$ make -C base-image build-nvidia-550
+make: Entering directory '/home/<user>/Workspaces/docker/retropie-docker/base-image'
+The separate base image is retired. Run make -C .. build for the driver-agnostic RetroPie :latest image.
+make: Leaving directory '/home/<user>/Workspaces/docker/retropie-docker/base-image'
+exit=0
+
+$ make check-env
+name: retropie-docker
+services:
+  retropie-service:
+    container_name: retropie-container
+    devices:
+      - source: /dev/input
+        target: /dev/input
+        permissions: rwm
+      - source: /dev/uinput
+        target: /dev/uinput
+        permissions: rwm
+      - source: /dev/snd
+        target: /dev/snd
+        permissions: rwm
+      - source: /dev/dri
+        target: /dev/dri
+        permissions: rwm
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/run/user/1000/bus
+      DISPLAY: :0
+      GDK_BACKEND: wayland,x11
+      MOZ_ENABLE_WAYLAND: "1"
+      NVIDIA_DRIVER_CAPABILITIES: graphics,display,video,compute,utility
+      NVIDIA_VISIBLE_DEVICES: all
+      PGID: "1000"
+      PUID: "1000"
+      PULSE_SERVER: unix:/run/user/1000/pulse/native
+      QT_QPA_PLATFORM: xcb
+      RETROPIE_EXTERNAL_ROMS: "0"
+      SDL_VIDEODRIVER: wayland,x11
+      TZ: Europe/Rome
+      WAYLAND_DISPLAY: wayland-1
+      XAUTHORITY: /tmp/retropie.xauth
+      XDG_RUNTIME_DIR: /run/user/1000
+      XDG_SESSION_TYPE: wayland
+    image: docker.io/manzolo/retropie:latest
+    network_mode: host
+    runtime: nvidia
+    security_opt:
+      - apparmor:unconfined
+    shm_size: "536870912"
+    volumes:
+      - type: bind
+        source: /home/<user>/Workspaces/docker/retropie-docker/retropie/mount
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /run/user/1000/wayland-1
+        target: /run/user/1000/wayland-1
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /home/<user>/.Xauthority
+        target: /tmp/retropie.xauth
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /run/user/1000/pulse
+        target: /run/user/1000/pulse
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /etc/machine-id
+        target: /etc/machine-id
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /run/user/1000/bus
+        target: /run/user/1000/bus
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /run/dbus
+        target: /run/dbus
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /run/udev/data
+        target: /run/udev/data
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+        bind: {}
+    stdin_open: true
+    tty: true
+exit=0
+
+$ git diff --check
+exit=0
+

@@ -1,0 +1,4 @@
+# Use the launcher so paths, Xauthority and external ROMs are resolved consistently.
+make -C ../.. retropie-start
+make -C ../.. retropie-enter
+make -C ../.. retropie-stop
