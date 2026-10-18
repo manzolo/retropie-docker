@@ -77,11 +77,15 @@ echo 'PASS: retired make targets explain their replacement'
 # Compose must render with the defaults and with an external ROM directory.
 if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
     tmp=$(mktemp -d); trap 'rm -rf -- "$tmp" "$tmpd"' EXIT
-    mkdir -p "$tmp/data" "$tmp/roms with spaces"
+    mkdir -p "$tmp/data" "$tmp/roms with spaces/c64"
+    touch "$tmp/roms with spaces/c64/gamelist.xml" "$tmp/roms with spaces/c64/game.tap"
     export DISPLAY=${DISPLAY:-:0} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp} HOME=${HOME:-/tmp}
     RETROPIE_DATA_DIR="$tmp/data" ./scripts/retropie.sh config >/dev/null && echo 'PASS: compose renders with defaults'
     rendered=$(RETROPIE_DATA_DIR="$tmp/data" RETROPIE_ROMS_DIR="$tmp/roms with spaces" ./scripts/retropie.sh config)
     grep -q 'read_only: true' <<<"$rendered" || fail 'external ROM mount is not read-only'
+    grep -q 'target: /data/roms/c64/gamelist.xml' <<<"$rendered" || fail 'the gamelist of an external collection is not mounted writable'
+    grep -q 'game.tap' <<<"$rendered" && fail 'a ROM file got its own writable mount'
+    echo 'PASS: compose mounts the gamelists of an external collection writable, nothing else'
     echo 'PASS: compose renders a read-only external ROM mount'
 else
     echo 'SKIP: docker compose not available'

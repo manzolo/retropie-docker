@@ -4,6 +4,7 @@ packages.local
 packages.update
 docker-compose.override.yml
 retropie/docker-compose.override.yml
+retropie/docker-compose.gamelists.yml
 
 # Game data: ROMs, BIOS, saves, states and generated configuration live outside git.
 # The default data directory and the old mount directory are never committed.

@@ -10,6 +10,8 @@ fixture=$(mktemp -d /tmp/retropie-data-test.XXXXXX)
 trap 'rm -rf -- "$fixture"' EXIT
 mkdir "$fixture/data" "$fixture/external-roms"
 printf 'known read-only ROM fixture\n' > "$fixture/external-roms/fixture.sfc"
+mkdir "$fixture/external-roms/snes"
+printf '<gameList><game><path>./a.sfc</path><name>A</name></game></gameList>\n' > "$fixture/external-roms/snes/gamelist.xml"
 rom_before=$(sha256sum "$fixture/external-roms/fixture.sfc")
 run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
     -e "EXPECTED_UID=$PUID" -e SDL_VIDEODRIVER=x11
@@ -61,8 +63,11 @@ PY
     grep -q "<name>test-kept</name>" /etc/emulationstation/es_systems.cfg
     echo "PASS: es_systems.cfg gained the missing $VICTIM system and kept its own entries"
 '
+# As the launcher does (docker-compose.gamelists.yml): the collection read-only, its gamelists writable,
+# because EmulationStation saves favourites and play counts into the gamelist.xml it read.
 "${run[@]}" -e RETROPIE_EXTERNAL_ROMS=1 \
     --mount "type=bind,src=$fixture/external-roms,dst=/data/roms,readonly" \
+    --mount "type=bind,src=$fixture/external-roms/snes/gamelist.xml,dst=/data/roms/snes/gamelist.xml" \
     "$image" /bin/bash -euc '
     test "$(cat /data/saves/probe.srm)" = known-save
     test "$(cat /data/states/probe.state)" = known-state
@@ -74,8 +79,17 @@ PY
         echo "FAIL: external ROMs unexpectedly writable"; exit 1
     fi
     grep "Read-only file system" /tmp/write-error
-    echo "PASS: persistence across recreation; external ROMs read-only"
+    if touch /data/roms/snes/other.xml 2>/dev/null; then
+        echo "FAIL: a non-gamelist file in the collection is writable"; exit 1
+    fi
+    # in place, as EmulationStation does (pugixml save_file): no temporary file next to it
+    updated=$(sed "s|<name>A</name>|<name>A</name><favorite>true</favorite>|" /data/roms/snes/gamelist.xml)
+    printf "%s\n" "$updated" > /data/roms/snes/gamelist.xml
+    echo "PASS: persistence across recreation; external ROMs read-only except their gamelists"
 '
 [[ $(sha256sum "$fixture/external-roms/fixture.sfc") == "$rom_before" ]]
+grep -q "<favorite>true</favorite>" "$fixture/external-roms/snes/gamelist.xml" \
+    || { echo 'FAIL: a favourite saved in the container did not reach the gamelist on the host'; exit 1; }
+echo 'PASS: gamelist edits made in the container reach the collection'
 [[ $(find "$fixture/external-roms" -type f | wc -l) == 1 ]]
 echo 'PASS: external ROM fixture unchanged; all portable-data tests'
