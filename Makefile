@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help images rollback data-backup packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help doctor images rollback data-backup packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 # Document public targets with ## and sections with ##@; the first target is shown.
 help: ## Show this help
 	@color=0; \
@@ -18,13 +18,15 @@ help: ## Show this help
 	} \
 	END { \
 	    printf "\n%sExamples%s\n", bold, reset; \
-	    print "  First run:        make wizard"; \
+	    print "  First run:        make doctor && make wizard"; \
 	    print "  Manual setup:     make packages-choose && make build && make start"; \
 	    print "  Update emulators: make update PKG=\"lr-vice dolphin\""; \
 	    print "\nTip: set NO_COLOR=1 to disable colors.\n"; \
 	}' $(MAKEFILE_LIST)
 
 ##@ Setup and build
+doctor: ## Check what the host must provide (Docker, NVIDIA toolkit, Wayland, audio, devices)
+	@./scripts/doctor.sh
 wizard: ## Configure, build and start interactively
 	@BUILD='$(BUILD)' ./scripts/wizard.sh
 build build-stack retropie-build: ## Build the driver-agnostic :latest image (can take hours)

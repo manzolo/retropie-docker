@@ -11,6 +11,12 @@ update never needs a rebuild).
 **No games, ROMs, BIOS files or artwork are included, ever.** They are copyrighted: you supply
 your own, in the data directory.
 
+**Status: experimental, one tested setup.** Built and played on Ubuntu 26.04 with the niri Wayland
+compositor (Xwayland), an NVIDIA RTX GPU with driver 615 and NVIDIA Container Toolkit 1.20.1, a
+PS3 controller. Other Wayland desktops with an NVIDIA GPU should work; X11-only desktops, AMD/Intel
+GPUs and non-Linux hosts are not supported (without the NVIDIA runtime the container does not
+start). Run `make doctor` first: it checks every requirement and says what is missing.
+
 ## Quick start
 
 ```bash
@@ -21,7 +27,7 @@ mkdir -p data/roms/snes data/BIOS   # add your own ROMs and BIOS files here
 make retropie-start             # EmulationStation on your desktop · retropie-logs · retropie-stop
 ```
 
-Needs Docker with Compose v2, a Wayland desktop with Xwayland, an NVIDIA driver plus the
+`make doctor` checks all of this. Needs Docker with Compose v2, a Wayland desktop with Xwayland, an NVIDIA driver plus the
 [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html),
 and a controller. `make wizard` does the same interactively; `make help` lists everything.
 
@@ -57,6 +63,25 @@ Run everything from your desktop session: the scripts read `DISPLAY`, `WAYLAND_D
 `XDG_RUNTIME_DIR` and your Xauthority cookie (mounted read-only; `xhost` is never called).
 `make retropie-debug-display` shows what was detected; `make retropie-enter` opens a shell in the
 running container.
+</details>
+
+<details>
+<summary><b>What the container can access, and why</b></summary>
+
+The container confines installation and dependencies, not security: to draw on your desktop and use
+your controller it gets a lot of the host. Each item is there for a reason found in testing:
+
+| Access | Why |
+|---|---|
+| NVIDIA runtime, `/dev/dri` | GPU (the driver comes from the host) |
+| Wayland socket, `/tmp/.X11-unix`, X authority (read-only) | drawing; Dolphin and some cores need Xwayland |
+| PulseAudio/PipeWire socket | sound |
+| `/dev/input`, `/dev/uinput`, `/run/udev/data` | controllers and their hot-plug |
+| session and system D-Bus (read-only) | desktop integration of some emulators |
+| host network | netplay and RetroArch network commands |
+| AppArmor unconfined | the default profile blocks parts of the above |
+
+Do not run games you do not trust in it any more than you would on the desktop itself.
 </details>
 
 <details>
@@ -233,6 +258,8 @@ layer and are lost when it is recreated: to keep an emulator, add it to your pac
   persistence work across container recreation. It also requires three deliberate failures to be
   rejected: compute-only capabilities, no NVIDIA runtime, a fake expected driver version.
 - `make test-desktop` checks the PulseAudio connection and controller device access.
+- `make doctor` checks the host before build or start (Docker and Compose, the NVIDIA runtime and
+  toolkit, Wayland/Xwayland, audio, D-Bus, devices, data ownership, free space).
 - `make test-static` runs what CI runs: syntax, shellcheck, the Dockerfile installs no driver and
   pins RetroPie-Setup, its package block matches `packages.default`, a `packages.local` drives
   its own Dockerfile, bad or unknown package names are refused, retired targets explain

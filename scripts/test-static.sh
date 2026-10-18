@@ -122,4 +122,10 @@ if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
 else
     echo 'SKIP: image versions (no docker daemon)'
 fi
+# doctor: a session without Wayland must block, with the reason
+if out=$(env -u WAYLAND_DISPLAY -u DISPLAY XDG_RUNTIME_DIR=/nonexistent NO_COLOR=1 ./scripts/doctor.sh 2>&1); then
+    fail "doctor passed without a desktop session: $out"
+fi
+grep -q 'no Wayland socket' <<<"$out" || fail "doctor did not name the missing Wayland socket: $out"
+echo 'PASS: doctor blocks without a desktop session and says why'
 echo 'PASS: all static checks'
