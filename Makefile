@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help images rollback data-backup packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 # Document public targets with ## and sections with ##@; the first target is shown.
 help: ## Show this help
 	@color=0; \
@@ -70,6 +70,12 @@ retropie-debug-display: ## Show detected display settings
 ##@ Images
 status: ## List current and legacy images without removing them
 	@docker image ls --filter reference='*/retropie:*' --filter reference='*/ubuntu-nvidia:*'
+images: ## List image versions on this machine (latest, previous, dated)
+	@./scripts/images.sh list
+rollback: ## Go back to the image before the last build (then make stop && make start)
+	@./scripts/images.sh rollback
+data-backup: ## Archive the data directory without ROMs into backups/
+	@./scripts/data-backup.sh
 retropie-push: ## Push the configured image to its registry
 
 # Shared implementation for the retropie-* runtime commands above.

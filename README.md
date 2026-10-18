@@ -145,6 +145,26 @@ Details, measured toolkit behaviour and limits:
 </details>
 
 <details>
+<summary><b>Versions, rollback and data backups</b></summary>
+
+`:latest` is what runs. Every build also tags the image it replaced as `:previous` and the new one
+with its date and commit (`:20261018-123000-7494db3`; the newest three are kept,
+`RETROPIE_KEEP_IMAGES` to change). If a new image misbehaves:
+
+```bash
+make images                 # versions on this machine
+make rollback               # :latest <-> :previous
+make stop && make start     # recreate the container on it
+```
+
+Before the first start of a different image the launcher archives the data directory without ROMs
+into `backups/` (ignored by git); `make data-backup` does it by hand. To restore: stop the
+container, extract the archive over the data directory. The base image is pinned by digest and
+RetroPie-Setup by commit, but emulator sources and Ubuntu packages are fetched at build time:
+a rebuild is not bit-for-bit reproducible, which is why the previous image is kept.
+</details>
+
+<details>
 <summary><b>Portability of the image</b></summary>
 
 RetroPie-Setup compiles with `-march=native`, so the image is optimised for the CPU that built it

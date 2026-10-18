@@ -1,5 +1,6 @@
 # Shared graphics stage, also usable for fast runtime diagnostics (no published tag).
-FROM ubuntu:24.04 AS graphics
+# Base pinned by digest: the ubuntu:24.04 tag moves; bump the digest deliberately (docker pull, inspect).
+FROM ubuntu:24.04@sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252 AS graphics
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates sudo tini gosu locales tzdata git python3 \
