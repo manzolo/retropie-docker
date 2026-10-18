@@ -34,8 +34,10 @@ case ${1:-help} in
             [[ -f packages.local ]] && echo "Emulators from packages.local: $(./scripts/packages.sh list | tr '\n' ' ')"
             [[ -f packages.update ]] && echo "Updates on top: $(grep -vE '^[[:space:]]*(#|$)' packages.update | tr '\n' ' ')"
         fi
+        ./scripts/images.sh before-build
         docker build -f "$dockerfile" --build-arg "CONTAINER_USERNAME=$CONTAINER_USERNAME" \
-            --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . ;;
+            --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . 
+        ./scripts/images.sh after-build ;;
     start)
         [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]] || { echo 'Missing Wayland socket' >&2; exit 1; }
         [[ -n ${DISPLAY:-} ]] || { echo 'DISPLAY is required for Dolphin/Xwayland' >&2; exit 1; }
@@ -47,6 +49,13 @@ case ${1:-help} in
             exit 1
         fi
         mkdir -p "$RETROPIE_DATA_DIR"
+        # first start of a different image: back the data up before its entrypoint migrates anything
+        image_id=$(docker image inspect --format '{{.Id}}' "$RETROPIE_IMAGE" 2>/dev/null || true)
+        marker=$RETROPIE_DATA_DIR/.retropie-image
+        if [[ -n $image_id && -s $marker && $(cat "$marker") != "$image_id" ]]; then
+            ./scripts/data-backup.sh "before-${image_id:7:12}"
+        fi
+        [[ -n $image_id ]] && printf '%s\n' "$image_id" > "$marker"
         "${compose[@]}" up -d ;;
     stop) "${compose[@]}" down ;;
     enter) "${compose[@]}" exec --user "$PUID:$PGID" retropie-service /bin/bash ;;

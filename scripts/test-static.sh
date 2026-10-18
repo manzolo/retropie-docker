@@ -90,4 +90,36 @@ if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
 else
     echo 'SKIP: docker compose not available'
 fi
+# Image versions and rollback, on throwaway empty images (no build): two "builds", rollback both
+# ways, pruning of old dated tags, and the data backup before the first start of a new image.
+if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
+    repo=retropie-imgtest/x
+    export RETROPIE_IMAGE=$repo:latest RETROPIE_KEEP_IMAGES=2
+    cleanup_images() { docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}' | xargs -r docker rmi -f >/dev/null 2>&1 || true; }
+    cleanup_images
+    fake_build() { tar -cf - --files-from /dev/null | docker import -c "LABEL n=$1" - "$repo:latest" >/dev/null; }
+    ./scripts/images.sh before-build; fake_build one; ./scripts/images.sh after-build >/dev/null
+    first=$(docker image inspect -f '{{.Id}}' "$repo:latest")
+    sleep 1; ./scripts/images.sh before-build; fake_build two; ./scripts/images.sh after-build >/dev/null
+    second=$(docker image inspect -f '{{.Id}}' "$repo:latest")
+    [[ $(docker image inspect -f '{{.Id}}' "$repo:previous") == "$first" ]] || fail 'build did not keep the old image as :previous'
+    ./scripts/images.sh rollback >/dev/null
+    [[ $(docker image inspect -f '{{.Id}}' "$repo:latest") == "$first" && $(docker image inspect -f '{{.Id}}' "$repo:previous") == "$second" ]] \
+        || fail 'rollback did not swap :latest and :previous'
+    ./scripts/images.sh rollback >/dev/null
+    [[ $(docker image inspect -f '{{.Id}}' "$repo:latest") == "$second" ]] || fail 'a second rollback did not come back'
+    for n in 3 4; do sleep 1; ./scripts/images.sh before-build; fake_build "$n"; ./scripts/images.sh after-build >/dev/null; done
+    dated=$(docker image ls "$repo" --format '{{.Tag}}' | grep -cE '^[0-9]{8}-[0-9]{6}-')
+    [[ $dated == 2 ]] || fail "expected the newest 2 dated versions, found $dated"
+    echo 'PASS: builds keep :previous and dated versions, rollback swaps both ways, old versions pruned'
+    data=$(mktemp -d); mkdir -p "$data/saves" "$data/roms/snes"; echo save > "$data/saves/a.srm"; echo rom > "$data/roms/snes/b.sfc"
+    out=$(RETROPIE_DATA_DIR=$data RETROPIE_BACKUP_DIR=$data-bk ./scripts/data-backup.sh test)
+    archive=$(ls "$data-bk"/data-*-test.tar.gz)
+    tar -tzf "$archive" | grep -q 'saves/a.srm' || fail "data backup misses the saves: $out"
+    tar -tzf "$archive" | grep -q 'roms' && fail 'data backup contains ROMs'
+    rm -rf "$data" "$data-bk"; cleanup_images; unset RETROPIE_IMAGE RETROPIE_KEEP_IMAGES
+    echo 'PASS: data backup keeps saves and leaves ROMs out'
+else
+    echo 'SKIP: image versions (no docker daemon)'
+fi
 echo 'PASS: all static checks'
