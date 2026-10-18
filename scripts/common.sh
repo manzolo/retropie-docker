@@ -39,3 +39,32 @@ if [[ -z ${XAUTHORITY:-} ]]; then
     done
 fi
 export XAUTHORITY=${XAUTHORITY:-/dev/null}
+# GPU and desktop session, resolved only by the scripts that need them (docker info is not free).
+# RETROPIE_GPU: nvidia (host driver injected by the NVIDIA Container Toolkit) or mesa (the image's
+# own Mesa: Intel, AMD, or software rendering); auto = nvidia when both the runtime and a driver work.
+# RETROPIE_SESSION: wayland or x11; auto = wayland when its socket exists.
+resolve_platform() {
+    case ${RETROPIE_GPU:=auto} in
+        auto) if nvidia_runtime && nvidia_driver >/dev/null; then RETROPIE_GPU=nvidia; else RETROPIE_GPU=mesa; fi ;;
+        nvidia|mesa) ;;
+        *) echo "RETROPIE_GPU must be auto, nvidia or mesa (got $RETROPIE_GPU)" >&2; return 1 ;;
+    esac
+    case ${RETROPIE_SESSION:=auto} in
+        auto) if [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]]; then RETROPIE_SESSION=wayland; else RETROPIE_SESSION=x11; fi ;;
+        wayland|x11) ;;
+        *) echo "RETROPIE_SESSION must be auto, wayland or x11 (got $RETROPIE_SESSION)" >&2; return 1 ;;
+    esac
+    # SDL and GTK follow the session unless .env forces them (SDL_VIDEODRIVER=x11 under Wayland)
+    if [[ $RETROPIE_SESSION == wayland ]]; then
+        export SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-wayland,x11} GDK_BACKEND=${GDK_BACKEND:-wayland,x11}
+    else
+        export SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-x11} GDK_BACKEND=${GDK_BACKEND:-x11}
+    fi
+    export RETROPIE_GPU RETROPIE_SESSION
+}
+nvidia_runtime() { docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; }
+nvidia_driver() {
+    command -v nvidia-smi >/dev/null || return 1
+    local v; v=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
+    [[ -n $v ]] && echo "$v"
+}

@@ -20,8 +20,6 @@ else
     ok "docker $(docker version --format '{{.Server.Version}}' 2>/dev/null)"
     if docker compose version >/dev/null 2>&1; then ok "$(docker compose version --short 2>/dev/null | sed 's/^/compose /')"
     else fail 'docker compose v2 missing (the docker-compose-plugin package)'; fi
-    if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then ok 'nvidia runtime registered in docker'
-    else fail 'no nvidia runtime in docker: install the NVIDIA Container Toolkit, then sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker'; fi
     root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)
     free=$(df -BG --output=avail "$root" 2>/dev/null | tail -1 | tr -dc 0-9)
     if [[ -n $free && $free -lt 15 ]]; then meh "only ${free} GB free under $root: a full build needs about 15 GB"
@@ -30,18 +28,40 @@ else
     else meh "image $RETROPIE_IMAGE not built yet: make build (hours)"; fi
 fi
 
-section 'NVIDIA'
-if command -v nvidia-smi >/dev/null && v=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1) && [[ -n $v ]]; then
-    ok "driver $v"
-else fail 'no working NVIDIA driver on the host (nvidia-smi): this project targets NVIDIA GPUs'; fi
-if command -v nvidia-ctk >/dev/null; then ok "$(nvidia-ctk --version 2>/dev/null | head -1)"
-else fail 'nvidia-ctk missing (NVIDIA Container Toolkit)'; fi
+section 'GPU'
+asked=${RETROPIE_GPU:-auto} asked_session=${RETROPIE_SESSION:-auto}
+driver=$(nvidia_driver || true)
+if ! err=$(resolve_platform 2>&1); then
+    fail "$err"; RETROPIE_SESSION=${asked_session/auto/x11}
+elif resolve_platform && [[ $RETROPIE_GPU == nvidia ]]; then
+    if [[ -n $driver ]]; then ok "NVIDIA driver $driver"; else fail 'RETROPIE_GPU=nvidia but no working NVIDIA driver on the host (nvidia-smi)'; fi
+    if nvidia_runtime; then ok 'nvidia runtime registered in docker'
+    else fail 'no nvidia runtime in docker: install the NVIDIA Container Toolkit, then sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker'; fi
+    if command -v nvidia-ctk >/dev/null; then ok "$(nvidia-ctk --version 2>/dev/null | head -1)"
+    else fail 'nvidia-ctk missing (NVIDIA Container Toolkit)'; fi
+else
+    ok "Mesa inside the image (RETROPIE_GPU=$asked)"
+    if [[ -n $driver ]] && nvidia_runtime; then
+        meh "NVIDIA GPU and toolkit present but Mesa forced: Mesa cannot use that GPU, rendering is software (RETROPIE_GPU=auto for the NVIDIA mode)"
+    elif [[ -n $driver ]]; then
+        meh "NVIDIA driver $driver on the host but no NVIDIA Container Toolkit in docker: Mesa cannot use that GPU, rendering falls back to software (install the toolkit for the NVIDIA mode)"
+    elif compgen -G '/dev/dri/renderD*' >/dev/null; then
+        vendor=$(cat /sys/class/drm/renderD*/device/vendor 2>/dev/null | head -1)
+        case $vendor in 0x8086) name=Intel;; 0x1002) name=AMD;; 0x1af4) name='virtio-gpu (virgl)';; *) name="vendor ${vendor:-unknown}";; esac
+        ok "render node $(compgen -G '/dev/dri/renderD*' | head -1): hardware acceleration ($name)"
+    else
+        meh 'no render node (/dev/dri/renderD*): software rendering (llvmpipe), fine for 8/16-bit systems, too slow for GameCube/Dreamcast'
+    fi
+fi
 
 section 'Desktop session'
-if [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]]; then ok "Wayland socket $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
-else fail "no Wayland socket at $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY: run from a Wayland desktop session (X11-only desktops are not supported)"; fi
-if [[ -n ${DISPLAY:-} ]]; then ok "Xwayland DISPLAY=$DISPLAY (Dolphin and some emulators use it)"
-else fail 'DISPLAY is empty: Xwayland is required'; fi
+if [[ $RETROPIE_SESSION == wayland ]]; then
+    if [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]]; then ok "Wayland socket $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
+    else fail "RETROPIE_SESSION=wayland but no Wayland socket at $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"; fi
+    if [[ -n ${DISPLAY:-} ]]; then ok "Xwayland DISPLAY=$DISPLAY (Dolphin and some emulators use it)"
+    else fail 'DISPLAY is empty: Xwayland is required'; fi
+elif [[ -n ${DISPLAY:-} ]]; then ok "X11 session DISPLAY=$DISPLAY (RETROPIE_SESSION=${asked_session})"
+else fail 'no desktop session: neither a Wayland socket nor DISPLAY (run from your graphical session)'; fi
 if [[ $XAUTHORITY != /dev/null && -r $XAUTHORITY ]]; then ok "X authority cookie $XAUTHORITY"
 else meh 'no X authority cookie found: Xwayland clients may be refused'; fi
 if [[ -S $XDG_RUNTIME_DIR/pulse/native ]]; then ok 'PulseAudio/PipeWire socket'

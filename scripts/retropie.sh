@@ -4,6 +4,11 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd "$ROOT"
 compose=(docker compose --project-directory "$ROOT" -f "$ROOT/retropie/docker-compose.yml")
+if [[ ${1:-} =~ ^(start|stop|enter|logs|config)$ ]]; then
+    resolve_platform
+    [[ $RETROPIE_GPU == nvidia ]] && compose+=(-f "$ROOT/retropie/docker-compose.nvidia.yml")
+    [[ $RETROPIE_SESSION == wayland ]] && compose+=(-f "$ROOT/retropie/docker-compose.wayland.yml")
+fi
 if [[ $RETROPIE_EXTERNAL_ROMS == 1 ]]; then
     compose+=(-f "$ROOT/retropie/docker-compose.roms.yml")
     # The collection is read-only, but EmulationStation saves favourites, play counts and edits to the
@@ -39,8 +44,11 @@ case ${1:-help} in
             --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . 
         ./scripts/images.sh after-build ;;
     start)
-        [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]] || { echo 'Missing Wayland socket' >&2; exit 1; }
-        [[ -n ${DISPLAY:-} ]] || { echo 'DISPLAY is required for Dolphin/Xwayland' >&2; exit 1; }
+        if [[ $RETROPIE_SESSION == wayland && ! -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]]; then
+            echo "Missing Wayland socket $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" >&2; exit 1
+        fi
+        [[ -n ${DISPLAY:-} ]] || { echo 'DISPLAY is required (X11, or Xwayland for Dolphin)' >&2; exit 1; }
+        echo "GPU: $RETROPIE_GPU · session: $RETROPIE_SESSION (RETROPIE_GPU / RETROPIE_SESSION in .env to force)"
         if [[ $RETROPIE_EXTERNAL_ROMS == 1 && ! -d $RETROPIE_ROMS_DIR ]]; then
             echo "External ROM directory does not exist: $RETROPIE_ROMS_DIR" >&2; exit 1
         fi
@@ -63,6 +71,8 @@ case ${1:-help} in
     config) "${compose[@]}" config ;;
     push) docker push "$RETROPIE_IMAGE" ;;
     debug-display)
+        resolve_platform
+        printf 'RETROPIE_GPU=%s\nRETROPIE_SESSION=%s\n' "$RETROPIE_GPU" "$RETROPIE_SESSION"
         printf 'DISPLAY=%s\nWAYLAND_DISPLAY=%s\nXDG_RUNTIME_DIR=%s\nXAUTHORITY=%s\n' "${DISPLAY:-}" "$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR" "$XAUTHORITY" ;;
     *) echo 'Usage: retropie.sh {build|start|stop|enter|logs|config|push|debug-display}' >&2; exit 1 ;;
 esac

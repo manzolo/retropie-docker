@@ -25,7 +25,7 @@ help: ## Show this help
 	}' $(MAKEFILE_LIST)
 
 ##@ Setup and build
-doctor: ## Check what the host must provide (Docker, NVIDIA toolkit, Wayland, audio, devices)
+doctor: ## Check what the host must provide (Docker, GPU, Wayland or X11, audio, devices)
 	@./scripts/doctor.sh
 wizard: ## Configure, build and start interactively
 	@BUILD='$(BUILD)' ./scripts/wizard.sh
@@ -53,7 +53,7 @@ update-clear: ## Clear packages.update; takes effect on the next build
 	@./scripts/packages.sh update-clear
 
 ##@ Tests and diagnostics
-test: ## Check the image, GPU injection and data persistence (needs Docker/GPU)
+test: ## Check the image, the GPU (NVIDIA injection or Mesa) and data persistence (needs Docker)
 	@./scripts/test-driver-agnostic.sh
 	@./scripts/test-data.sh
 test-desktop: ## Check audio connection and controller permissions (needs hardware)

@@ -3,7 +3,7 @@ set -euo pipefail
 # shellcheck source=scripts/common.sh
 source "$(dirname "$0")/common.sh"
 cd "$ROOT"
-echo 'RetroPie: one image, host-injected NVIDIA driver libraries.'
+echo 'RetroPie: one image; NVIDIA driver injected from the host, or Mesa.'
 ./scripts/doctor.sh || { read -r -p 'The host is missing something (see above). Continue anyway? [y/N]: ' go; [[ ${go,,} == y* ]] || exit 1; }
 docker compose version
 [[ -f .env ]] || cp .env.example .env
