@@ -75,7 +75,11 @@ are mounted at `/data` in the container:
 | `home-config`, `home-data` | XDG settings and application data |
 
 Default configuration is stored in the image and copied on first start, only where a file is
-missing: your edits are never overwritten. The container maps its user to your `PUID`/`PGID`
+missing: your edits are never overwritten. Two files are merged instead, because the image can gain
+emulators after your data was created: `emulationstation/es_systems.cfg` gets the systems it lacks,
+and each `configs/<system>/emulators.cfg` gets the emulator lines it lacks. Existing lines, including
+the `default` you chose, are never changed, and the file is backed up next to itself
+(`emulators.cfg.bak-<date>`) before the first change. The container maps its user to your `PUID`/`PGID`
 without recursively changing ownership of anything.
 
 **Existing ROM collection:** `RETROPIE_ROMS_DIR=/path/to/roms` in `.env`. Mounted read-only at

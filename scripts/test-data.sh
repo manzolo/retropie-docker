@@ -50,6 +50,21 @@ run=(docker run --rm --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID"
 '
 # An es_systems.cfg from an older image must gain the systems the image has now, and keep its own.
 # The victim is the last system: whatever the package selection, the image has it.
+# An emulator the image gained must appear in an existing emulators.cfg, without touching the
+# default the user chose: remove one emulator line and change the default, then start again.
+read -r emu_system emu_removed emu_default < <(python3 - "$fixture/data/configs" <<'PY'
+import glob, re, sys
+for cfg in sorted(glob.glob(sys.argv[1] + '/*/emulators.cfg')):
+    keys = [re.match(r'\s*([^#=\s][^=]*?)\s*=', l).group(1) for l in open(cfg) if re.match(r'\s*[^#=\s][^=]*?\s*=', l)]
+    emus = [k for k in keys if k != 'default']
+    if len(emus) >= 2:
+        removed, chosen = emus[0], emus[1]
+        lines = [l for l in open(cfg) if not re.match(r'\s*(default|' + re.escape(removed) + r')\s*=', l)]
+        open(cfg, 'w').write(''.join(lines) + f'default = "{chosen}"\n')
+        print(cfg.split('/')[-2], removed, chosen); break
+PY
+)
+[[ -n $emu_system ]] || { echo 'FAIL: no system with two emulators to test the emulators.cfg merge'; exit 1; }
 victim=$(python3 - "$fixture/data/emulationstation/es_systems.cfg" <<'PY'
 import sys, xml.etree.ElementTree as ET
 p = sys.argv[1]; tree = ET.parse(p); root = tree.getroot()
@@ -60,10 +75,16 @@ keep = ET.SubElement(root, 'system'); ET.SubElement(keep, 'name').text = 'test-k
 tree.write(p, encoding='utf-8', xml_declaration=True)
 PY
 )
-"${run[@]}" -e "VICTIM=$victim" "$image" /bin/bash -euc '
+"${run[@]}" -e "VICTIM=$victim" -e "EMU_SYSTEM=$emu_system" -e "EMU_REMOVED=$emu_removed" -e "EMU_DEFAULT=$emu_default" "$image" /bin/bash -euc '
     grep -q "<name>$VICTIM</name>" /etc/emulationstation/es_systems.cfg
     grep -q "<name>test-kept</name>" /etc/emulationstation/es_systems.cfg
     echo "PASS: es_systems.cfg gained the missing $VICTIM system and kept its own entries"
+    cfg=/data/configs/$EMU_SYSTEM/emulators.cfg
+    grep -q "^$EMU_REMOVED = " "$cfg" || { echo "FAIL: $EMU_REMOVED did not come back in $cfg"; exit 1; }
+    grep -qx "default = \"$EMU_DEFAULT\"" "$cfg" || { echo "FAIL: the chosen default was changed in $cfg"; cat "$cfg"; exit 1; }
+    [[ $(grep -c "^default" "$cfg") == 1 ]] || { echo "FAIL: two defaults in $cfg"; exit 1; }
+    ls "$cfg".bak-* >/dev/null || { echo "FAIL: no backup of $cfg before the merge"; exit 1; }
+    echo "PASS: emulators.cfg of $EMU_SYSTEM gained $EMU_REMOVED, kept the default $EMU_DEFAULT, backup made"
 '
 # As the launcher does (docker-compose.gamelists.yml): the collection read-only, its gamelists writable,
 # because EmulationStation saves favourites and play counts into the gamelist.xml it read.

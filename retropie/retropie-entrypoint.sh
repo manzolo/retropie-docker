@@ -42,6 +42,38 @@ if new:
     print('es_systems.cfg: added ' + ', '.join(s.findtext('name') for s in new))
 PY
 fi
+# Same for each system's emulators.cfg: an emulator added to the image later (make packages-choose,
+# make update) must become selectable even where the file already exists. Missing lines are
+# appended; existing lines, including the default you chose, are never changed; the file is backed
+# up next to itself before the first change.
+gosu "$user" python3 - <<'PY' || echo "emulators.cfg: merge of new emulators skipped (see above)" >&2
+import glob, os, re, shutil, time
+line_re = re.compile(r'^\s*([^#=\s][^=]*?)\s*=\s*(.*?)\s*$')
+def entries(path):
+    out = {}
+    for line in open(path, errors='replace'):
+        m = line_re.match(line)
+        if m: out.setdefault(m.group(1), m.group(2))
+    return out
+stamp = time.strftime('%Y%m%d-%H%M%S')
+for src in sorted(glob.glob('/usr/local/share/retropie-defaults/configs/*/emulators.cfg')):
+    system = src.split('/')[-2]
+    dst = f'/data/configs/{system}/emulators.cfg'
+    if not os.path.isfile(dst):
+        continue
+    have, img = entries(dst), entries(src)
+    missing = [(k, v) for k, v in img.items() if k not in have and (k != 'default' or 'default' not in have)]
+    if not missing:
+        continue
+    shutil.copy2(dst, f'{dst}.bak-{stamp}')
+    text = open(dst, errors='replace').read()
+    with open(dst, 'a') as f:
+        if text and not text.endswith('\n'):
+            f.write('\n')
+        for k, v in missing:
+            f.write(f'{k} = {v}\n')
+    print(f'emulators.cfg: {system} gained ' + ', '.join(k for k, _ in missing))
+PY
 # Add device groups within the container; leave host permissions untouched.
 while read -r device_gid; do
     [[ -n $device_gid ]] || continue
