@@ -79,6 +79,14 @@ RUN /usr/local/bin/prepare-data && \
         ls -d /opt/retropie/*/"$p" >/dev/null 2>&1 || { echo "package $p did not install"; exit 1; }; \
     done && \
     test -z "$(find /usr /opt -name 'libnvidia-*' -o -name nvidia-smi)"
+# The RetroPie menu's terminal programs open in a visible xterm (retropie-menu-launch); kept after
+# the packages so adding it does not rebuild them.
+RUN apt-get update && apt-get install -y --no-install-recommends xterm fonts-dejavu-core && \
+    rm -rf /var/lib/apt/lists/*
+COPY --chmod=755 retropie/retropie-menu-launch.sh /usr/local/bin/retropie-menu-launch
+RUN f=/usr/local/share/retropie-defaults/emulationstation/es_systems.cfg && \
+    sed -i 's|<command>sudo /home/[^/]*/RetroPie-Setup/retropie_packages.sh retropiemenu launch %ROM% *</command>|<command>retropie-menu-launch %ROM%</command>|' "$f" && \
+    grep -q '<command>retropie-menu-launch %ROM%</command>' "$f"
 COPY --from=diagnostics /usr/local/bin/gpu-check /usr/local/bin/gpu-check
 COPY --chmod=755 retropie/retropie-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --chmod=755 retropie/healthcheck.sh /usr/local/bin/healthcheck.sh
