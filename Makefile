@@ -1,52 +1,78 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 .PHONY: start stop enter logs help packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
-help:
-	@echo 'make build / retropie-build   Build the single driver-agnostic :latest image'
-	@echo 'make wizard                  Configure, build and start interactively'
-	@echo 'make packages                List the emulators the next build installs (packages.local or packages.default)'
-	@echo 'make packages-choose         Pick emulators from a checklist (writes packages.local)'
-	@echo 'make packages-check          Validate package names against the pinned RetroPie-Setup'
-	@echo 'make update PKG="a b"        Rebuild these packages from upstream on top (minutes; packages.update)'
-	@echo 'make update-clear            Forget the updates (a fresh build folds them in)'
-	@echo 'make retropie-start/stop/enter/logs'
-	@echo 'make test                    Verify clean image, GPU injection and deliberate failures'
-	@echo 'make test-static             Syntax, shellcheck, Dockerfile and compose checks (what CI runs)'
-	@echo 'make check-nvidia            Diagnose runtime graphics'
-	@echo 'make check-public            Refuse game data, secrets or private hosts anywhere in git history'
-	@echo 'make status                  List current and legacy images (never remove them)'
-build build-stack retropie-build:
+# Document public targets with ## and sections with ##@; the first target is shown.
+help: ## Show this help
+	@color=0; \
+	if [ -t 1 ] && [ "$${TERM:-dumb}" != dumb ] && [ -z "$${NO_COLOR:-}" ]; then color=1; fi; \
+	awk -v color="$$color" 'BEGIN { \
+	    if (color) { bold = sprintf("%c[1m", 27); cyan = sprintf("%c[36m", 27); reset = sprintf("%c[0m", 27) } \
+	    printf "\n%sRetroPie Docker%s\n", bold, reset; \
+	    print "Usage: make <target> [VARIABLE=value]"; \
+	} \
+	/^##@ / { printf "\n%s%s%s\n", bold, substr($$0, 5), reset; next } \
+	/^[a-zA-Z0-9_-][^:]*:.*## / { \
+	    split($$0, words, /[ :]+/); \
+	    description = $$0; sub(/^.*## /, "", description); \
+	    printf "  %s%-30s%s %s\n", cyan, "make " words[1], reset, description; \
+	} \
+	END { \
+	    printf "\n%sExamples%s\n", bold, reset; \
+	    print "  First run:        make wizard"; \
+	    print "  Manual setup:     make packages-choose && make build && make start"; \
+	    print "  Update emulators: make update PKG=\"lr-vice dolphin\""; \
+	    print "\nTip: set NO_COLOR=1 to disable colors.\n"; \
+	}' $(MAKEFILE_LIST)
+
+##@ Setup and build
+wizard: ## Configure, build and start interactively
+	@BUILD='$(BUILD)' ./scripts/wizard.sh
+build build-stack retropie-build: ## Build the driver-agnostic :latest image (can take hours)
 	@./scripts/retropie.sh build
-packages:
+
+##@ Run (also available as retropie-start/stop/enter/logs)
+start: retropie-start ## Start EmulationStation
+stop: retropie-stop ## Stop the container
+enter: retropie-enter ## Open a shell in the running container
+logs: retropie-logs ## Follow container logs (Ctrl-C to leave)
+
+##@ Emulators
+packages: ## List packages for the next build (local or default selection)
 	@./scripts/packages.sh list
-packages-choose:
+packages-choose: ## Choose emulators interactively; write packages.local
 	@./scripts/packages.sh choose
-packages-check:
+packages-check: ## Validate names against the pinned RetroPie-Setup
 	@./scripts/packages.sh check
-update:
+update: ## Rebuild selected packages from upstream; requires PKG="a b"
 	@test -n '$(PKG)' || { echo 'Usage: make update PKG="lr-vice dolphin"'; exit 1; }
 	@./scripts/packages.sh update $(PKG)
 	@./scripts/retropie.sh build
-update-clear:
+update-clear: ## Clear packages.update; takes effect on the next build
 	@./scripts/packages.sh update-clear
-wizard:
-	@BUILD='$(BUILD)' ./scripts/wizard.sh
-test:
+
+##@ Tests and diagnostics
+test: ## Check the image, GPU injection and data persistence (needs Docker/GPU)
 	@./scripts/test-driver-agnostic.sh
 	@./scripts/test-data.sh
-test-desktop:
+test-desktop: ## Check audio connection and controller permissions (needs hardware)
 	@./scripts/test-desktop.sh
-test-static:
+test-static: ## Run syntax, shellcheck, Dockerfile and Compose checks (CI)
 	@./scripts/test-static.sh
-check-public:
+check-public: ## Scan git history for game data, secrets and private hosts
 	@./scripts/check-public.sh --self-test
 	@./scripts/check-public.sh
-check-nvidia:
+check-nvidia: ## Diagnose runtime graphics
 	@./scripts/check-nvidia.sh
-check-env:
+check-env: ## Print the resolved Compose configuration
 	@./scripts/retropie.sh config
-status:
+retropie-debug-display: ## Show detected display settings
+
+##@ Images
+status: ## List current and legacy images without removing them
 	@docker image ls --filter reference='*/retropie:*' --filter reference='*/ubuntu-nvidia:*'
+retropie-push: ## Push the configured image to its registry
+
+# Shared implementation for the retropie-* runtime commands above.
 retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push:
 	@./scripts/retropie.sh $(@:retropie-%=%)
 # Keep obsolete commands discoverable without building/pushing/deleting old images.
@@ -55,7 +81,3 @@ base-build-nvidia-% base-push-nvidia-% retropie-build-nvidia-% retropie-push-nvi
 	@echo '$@ is retired: NVIDIA libraries now come from the host runtime. Use make build / retropie-start / retropie-push (:latest).'
 base-build base-push base-clean base-build-all base-push-all retropie-build-all retropie-push-all retropie-clean build-all-stack push-all-stack clean-all build-all push-all:
 	@echo '$@ is retired. There is one image, :latest. Use make build or make retropie-push. Legacy images are left untouched.'
-start: retropie-start
-stop: retropie-stop
-enter: retropie-enter
-logs: retropie-logs
