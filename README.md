@@ -261,11 +261,13 @@ build (`make update-clear`, then `docker build --no-cache` or a bumped `RETROPIE
 from the RetroPie menu inside the running container is lost when the container is recreated.
 
 The **RetroPie menu inside EmulationStation** is mostly terminal programs (RetroPie-Setup, config
-editor, themes, runcommand, file manager, show IP): in the container they draw on the container's
-own terminal, which you cannot see, so launching them appears to do nothing. Only the RetroArch
-entry is graphical. Run them from a shell instead: `make retropie-enter`, then
-`sudo ~/RetroPie-Setup/retropie_setup.sh`. Packages installed that way live in the container
-layer and are lost when it is recreated: to keep an emulator, add it to your package list.
+editor, themes, runcommand, file manager, show IP). In the container they open in a full-screen
+xterm on your desktop (`retropie-menu-launch`; the entrypoint switches the stock command of an
+existing `es_systems.cfg` to it, a customised command is left alone); EmulationStation comes back
+when you leave them. The keyboard always works there; the controller only if your kernel still
+allows the terminal injection RetroPie's joy2key uses (`dev.tty.legacy_tiocsti`). Packages
+installed or updated from RetroPie-Setup live in the container layer and are lost when it is
+recreated: to keep an emulator, add it to your package list, to update one use `make update`.
 </details>
 
 <details>

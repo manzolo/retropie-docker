@@ -42,6 +42,12 @@ if new:
     print('es_systems.cfg: added ' + ', '.join(s.findtext('name') for s in new))
 PY
 fi
+# The RetroPie menu's stock command runs its terminal programs where nobody sees them: use the
+# launcher that opens them in an xterm. Only the exact stock line is replaced, a custom one is kept.
+if [[ -f /data/emulationstation/es_systems.cfg ]]; then
+    gosu "$user" sed -i 's|<command>sudo /home/[^/]*/RetroPie-Setup/retropie_packages.sh retropiemenu launch %ROM% *</command>|<command>retropie-menu-launch %ROM%</command>|' \
+        /data/emulationstation/es_systems.cfg
+fi
 # Same for each system's emulators.cfg: an emulator added to the image later (make packages-choose,
 # make update) must become selectable even where the file already exists. Missing lines are
 # appended; existing lines, including the default you chose, are never changed; the file is backed
