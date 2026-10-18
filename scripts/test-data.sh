@@ -6,6 +6,8 @@ set -euo pipefail
 # shellcheck source=scripts/common.sh
 source "$(dirname "$0")/common.sh"
 image=${TEST_IMAGE:-$RETROPIE_IMAGE}
+# set -e alone stops without a word (that hid a broken check once): say where it stopped
+trap 'echo "FAIL: scripts/test-data.sh line $LINENO" >&2' ERR
 fixture=$(mktemp -d /tmp/retropie-data-test.XXXXXX)
 trap 'rm -rf -- "$fixture"' EXIT
 mkdir "$fixture/data" "$fixture/external-roms"
@@ -91,5 +93,7 @@ PY
 grep -q "<favorite>true</favorite>" "$fixture/external-roms/snes/gamelist.xml" \
     || { echo 'FAIL: a favourite saved in the container did not reach the gamelist on the host'; exit 1; }
 echo 'PASS: gamelist edits made in the container reach the collection'
-[[ $(find "$fixture/external-roms" -type f | wc -l) == 1 ]]
+# nothing else appeared in the collection: just the ROM and the gamelist it was given
+extra=$(find "$fixture/external-roms" -type f ! -path "$fixture/external-roms/fixture.sfc" ! -path "$fixture/external-roms/snes/gamelist.xml")
+[[ -z $extra ]] || { echo "FAIL: files appeared in the read-only collection: $extra"; exit 1; }
 echo 'PASS: external ROM fixture unchanged; all portable-data tests'
