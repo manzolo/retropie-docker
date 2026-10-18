@@ -87,6 +87,23 @@ if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
     grep -q 'game.tap' <<<"$rendered" && fail 'a ROM file got its own writable mount'
     echo 'PASS: compose mounts the gamelists of an external collection writable, nothing else'
     echo 'PASS: compose renders a read-only external ROM mount'
+    # GPU and session overrides: forced modes render exactly their pieces, nothing NVIDIA under Mesa.
+    mode() { RETROPIE_DATA_DIR="$tmp/data" RETROPIE_GPU=$1 RETROPIE_SESSION=$2 ./scripts/retropie.sh config; }
+    rendered=$(mode mesa x11)
+    grep -qiE 'runtime: nvidia|NVIDIA_' <<<"$rendered" && fail 'Mesa mode still asks for the NVIDIA runtime'
+    grep -qE 'WAYLAND_DISPLAY|wayland-' <<<"$rendered" && fail 'X11 session mounts or names a Wayland socket'
+    grep -q 'SDL_VIDEODRIVER: x11' <<<"$rendered" || fail 'X11 session does not set SDL to x11'
+    rendered=$(mode nvidia wayland)
+    if ! grep -q 'runtime: nvidia' <<<"$rendered" || ! grep -q 'NVIDIA_DRIVER_CAPABILITIES: graphics,display' <<<"$rendered"; then
+        fail 'NVIDIA mode lacks the runtime or the graphics capabilities'
+    fi
+    if ! grep -q 'SDL_VIDEODRIVER: wayland,x11' <<<"$rendered" || ! grep -q "target: /run/user/.*/${WAYLAND_DISPLAY}" <<<"$rendered"; then
+        fail 'Wayland session lacks the socket mount or the SDL default'
+    fi
+    RETROPIE_DATA_DIR="$tmp/data" RETROPIE_SESSION=x11 SDL_VIDEODRIVER=dummy ./scripts/retropie.sh config | grep -q 'SDL_VIDEODRIVER: dummy' \
+        || fail 'an explicit SDL_VIDEODRIVER is overridden'
+    mode bogus x11 >/dev/null 2>&1 && fail 'RETROPIE_GPU=bogus was accepted'
+    echo 'PASS: compose renders Mesa/X11 without NVIDIA or Wayland, NVIDIA/Wayland with both; bad values refused'
 else
     echo 'SKIP: docker compose not available'
 fi
@@ -122,10 +139,13 @@ if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
 else
     echo 'SKIP: image versions (no docker daemon)'
 fi
-# doctor: a session without Wayland must block, with the reason
+# doctor: no desktop session at all must block, with the reason; a forced Wayland without socket too
 if out=$(env -u WAYLAND_DISPLAY -u DISPLAY XDG_RUNTIME_DIR=/nonexistent NO_COLOR=1 ./scripts/doctor.sh 2>&1); then
     fail "doctor passed without a desktop session: $out"
 fi
+grep -q 'no desktop session' <<<"$out" || fail "doctor did not say the desktop session is missing: $out"
+out=$(env -u WAYLAND_DISPLAY DISPLAY=:9 XDG_RUNTIME_DIR=/nonexistent RETROPIE_SESSION=wayland NO_COLOR=1 ./scripts/doctor.sh 2>&1) \
+    && fail "doctor passed a forced Wayland session without socket: $out"
 grep -q 'no Wayland socket' <<<"$out" || fail "doctor did not name the missing Wayland socket: $out"
 echo 'PASS: doctor blocks without a desktop session and says why'
 echo 'PASS: all static checks'

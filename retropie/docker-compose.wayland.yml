@@ -1,0 +1,9 @@
+# Added by the launcher when RETROPIE_SESSION resolves to wayland. Xwayland stays mounted from the
+# base file: Dolphin and some cores need it.
+services:
+  retropie-service:
+    environment:
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-wayland-0}
+      MOZ_ENABLE_WAYLAND: '1'
+    volumes:
+      - ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}:/run/user/${PUID:-1000}/${WAYLAND_DISPLAY:-wayland-0}:ro

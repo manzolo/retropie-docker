@@ -1,0 +1,8 @@
+# Added by the launcher when RETROPIE_GPU resolves to nvidia: the NVIDIA Container Toolkit mounts the
+# host's driver libraries at creation time (the image has none).
+services:
+  retropie-service:
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: graphics,display,video,compute,utility

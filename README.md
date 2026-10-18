@@ -3,19 +3,25 @@
 > **Disclaimer:** unofficial hobby project, not affiliated with or endorsed by RetroPie,
 > RetroArch/libretro, Dolphin, Flycast, ScummVM or EmulationStation. Use as-is, no support.
 
-[RetroPie](https://retropie.org.uk/) on a Linux Wayland desktop with an NVIDIA GPU, confined to a
-container: **one image built on your machine, one portable data directory, nothing installed on
-the host, and no NVIDIA driver inside the image** (the host's is injected at start, so a driver
-update never needs a rebuild).
+[RetroPie](https://retropie.org.uk/) on a Linux desktop (Wayland or X11), confined to a container:
+**one image built on your machine, one portable data directory, nothing installed on the host.**
+With an NVIDIA GPU the host's driver is injected at start (no driver inside the image, so a driver
+update never needs a rebuild); with Intel, AMD or no GPU at all the image's own Mesa draws.
 
 **No games, ROMs, BIOS files or artwork are included, ever.** They are copyrighted: you supply
 your own, in the data directory.
 
-**Status: experimental, one tested setup.** Built and played on Ubuntu 26.04 with the niri Wayland
-compositor (Xwayland), an NVIDIA RTX GPU with driver 615 and NVIDIA Container Toolkit 1.20.1, a
-PS3 controller. Other Wayland desktops with an NVIDIA GPU should work; X11-only desktops, AMD/Intel
-GPUs and non-Linux hosts are not supported (without the NVIDIA runtime the container does not
-start). Run `make doctor` first: it checks every requirement and says what is missing.
+**Status: experimental.** Two tested setups:
+
+| Mode | Tested on |
+|---|---|
+| NVIDIA + Wayland | Ubuntu 26.04, niri compositor (Xwayland), NVIDIA RTX with driver 615, NVIDIA Container Toolkit 1.20.1, PS3 controller |
+| Mesa + X11 | Lubuntu 22.04 (LXQt) in a virtual machine without GPU acceleration: software rendering |
+
+The mode is picked automatically (`RETROPIE_GPU`, `RETROPIE_SESSION` in `.env` to force it). Intel
+and AMD GPUs go through Mesa with hardware acceleration and should work, but are not tested;
+non-Linux hosts are not supported. Run `make doctor` first: it checks every requirement, says
+which mode it will use and what is missing.
 
 ## Quick start
 
@@ -27,9 +33,9 @@ mkdir -p data/roms/snes data/BIOS   # add your own ROMs and BIOS files here
 make retropie-start             # EmulationStation on your desktop · retropie-logs · retropie-stop
 ```
 
-`make doctor` checks all of this. Needs Docker with Compose v2, a Wayland desktop with Xwayland, an NVIDIA driver plus the
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html),
-and a controller. `make wizard` does the same interactively; `make help` lists everything.
+`make doctor` checks all of this. Needs Docker with Compose v2, a Wayland (with Xwayland) or X11
+desktop, a controller and, for NVIDIA GPUs only, the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). `make wizard` does the same interactively; `make help` lists everything.
 
 | Your files | Where |
 |---|---|
@@ -45,18 +51,22 @@ anywhere in the history: keep it that way if you fork.
 <details>
 <summary><b>Host requirements</b></summary>
 
-- Linux with a **Wayland** desktop and Xwayland (Dolphin runs through Xwayland). X11-only desktops
-  are not tested.
-- Docker Engine with Compose v2.
-- An NVIDIA GPU with a working host driver and the NVIDIA Container Toolkit (validated with toolkit
-  1.20.1 and driver 615). Once, on the host:
+- Linux with a **Wayland** desktop and Xwayland (Dolphin runs through Xwayland), or an **X11**
+  desktop.
+- Docker Engine with Compose v2 (on Ubuntu: `sudo apt install docker.io docker-compose-v2`, then
+  add yourself to the `docker` group and log in again).
+- GPU, one of:
+  - **Intel or AMD** (or none): nothing to install, Mesa is in the image. Without a render node
+    (`/dev/dri/renderD*`, typical in virtual machines) rendering is software: fine for 8- and
+    16-bit systems, too slow for GameCube or Dreamcast.
+  - **NVIDIA**: a working host driver and the NVIDIA Container Toolkit (validated with toolkit
+    1.20.1 and driver 615). Without the toolkit the NVIDIA GPU is unused and rendering is software.
+    Once, on the host:
 
-  ```bash
-  sudo nvidia-ctk runtime configure --runtime=docker
-  sudo systemctl restart docker
-  ```
-
-  Without an NVIDIA GPU the container starts on Mesa and says so; not a tested configuration.
+    ```bash
+    sudo nvidia-ctk runtime configure --runtime=docker
+    sudo systemctl restart docker
+    ```
 - PulseAudio, or PipeWire's PulseAudio socket, and a game controller on `/dev/input`.
 
 Run everything from your desktop session: the scripts read `DISPLAY`, `WAYLAND_DISPLAY`,
@@ -73,8 +83,8 @@ your controller it gets a lot of the host. Each item is there for a reason found
 
 | Access | Why |
 |---|---|
-| NVIDIA runtime, `/dev/dri` | GPU (the driver comes from the host) |
-| Wayland socket, `/tmp/.X11-unix`, X authority (read-only) | drawing; Dolphin and some cores need Xwayland |
+| `/dev/dri`, NVIDIA runtime (NVIDIA mode only) | GPU (with NVIDIA the driver comes from the host) |
+| `/tmp/.X11-unix`, X authority, Wayland socket (Wayland only), all read-only | drawing; Dolphin and some cores need X11/Xwayland |
 | PulseAudio/PipeWire socket | sound |
 | `/dev/input`, `/dev/uinput`, `/run/udev/data` | controllers and their hot-plug |
 | session and system D-Bus (read-only) | desktop integration of some emulators |
@@ -157,8 +167,17 @@ profiles with the libretro autoconfig pack (subdirectories), copy your own profi
 <summary><b>How the GPU works</b></summary>
 
 The image ships only the generic loaders (GLVND, EGL, Vulkan, GBM, Wayland client libraries) plus
-Mesa as a fallback, and contains **no `libnvidia-*` file**. Compose starts the container with
-`runtime: nvidia` and `NVIDIA_DRIVER_CAPABILITIES=graphics,display,video,compute,utility`; the
+Mesa, and contains **no `libnvidia-*` file**. The launcher resolves two settings at every start
+(`make retropie-debug-display` shows them) and adds the matching Compose files:
+
+| Setting | `auto` resolves to | Adds |
+|---|---|---|
+| `RETROPIE_GPU` | `nvidia` when docker has the `nvidia` runtime and `nvidia-smi` works, else `mesa` | `retropie/docker-compose.nvidia.yml` |
+| `RETROPIE_SESSION` | `wayland` when `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` exists, else `x11` | `retropie/docker-compose.wayland.yml` |
+
+With **Mesa**, nothing from the host's graphics stack enters the container: `/dev/dri` is enough
+for Intel and AMD, llvmpipe draws when there is no render node. With **NVIDIA**, Compose starts the
+container with `runtime: nvidia` and `NVIDIA_DRIVER_CAPABILITIES=graphics,display,video,compute,utility`; the
 toolkit mounts the host's GLX/EGL/Vulkan libraries, the EGL-Wayland and GBM platform plugins and
 their manifests at creation time. If the injected EGL-Wayland platform does not work, startup falls
 back to Xwayland for SDL/GTK applications and logs it. Dolphin always uses Xwayland. After a host
@@ -257,13 +276,16 @@ layer and are lost when it is recreated: to keep an emulator, add it to your pac
   resolve, Wayland EGL, Xwayland GLX and Vulkan report NVIDIA, and defaults, user mapping and
   persistence work across container recreation. It also requires three deliberate failures to be
   rejected: compute-only capabilities, no NVIDIA runtime, a fake expected driver version.
+  In Mesa mode it checks instead that the image's Mesa renders and that the driver check reports
+  Mesa, never NVIDIA.
 - `make test-desktop` checks the PulseAudio connection and controller device access.
-- `make doctor` checks the host before build or start (Docker and Compose, the NVIDIA runtime and
-  toolkit, Wayland/Xwayland, audio, D-Bus, devices, data ownership, free space).
+- `make doctor` checks the host before build or start (Docker and Compose, which GPU mode and
+  whether it accelerates, the NVIDIA runtime and toolkit when used, Wayland/Xwayland or X11, audio,
+  D-Bus, devices, data ownership, free space).
 - `make test-static` runs what CI runs: syntax, shellcheck, the Dockerfile installs no driver and
   pins RetroPie-Setup, its package block matches `packages.default`, a `packages.local` drives
   its own Dockerfile, bad or unknown package names are refused, retired targets explain
-  themselves, Compose renders. The GitHub workflow
+  themselves, Compose renders, and in Mesa/X11 mode carries nothing NVIDIA and no Wayland socket. The GitHub workflow
   also builds the diagnostics stage and checks that without a GPU the image says so (exit 2),
   and once a month (or on demand) builds the whole image and runs the data tests. GPU tests need
   a real machine: CI has no NVIDIA card and no Wayland desktop.
