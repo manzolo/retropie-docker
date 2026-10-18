@@ -79,7 +79,11 @@ missing: your edits are never overwritten. The container maps its user to your `
 without recursively changing ownership of anything.
 
 **Existing ROM collection:** `RETROPIE_ROMS_DIR=/path/to/roms` in `.env`. Mounted read-only at
-`/data/roms`, never copied or modified; saves and states still go to `data/`.
+`/data/roms`, never copied or modified; saves and states still go to `data/`. The one exception:
+each `<system>/gamelist.xml` already in the collection is mounted writable (the launcher generates
+`retropie/docker-compose.gamelists.yml` at every start), because EmulationStation saves favourites,
+play counts and metadata edits into the gamelist it read; without this they are lost silently
+(`Error saving gamelist.xml` in `es_log.txt`).
 
 **Moving to another PC:** `make retropie-stop`, copy `data/` (and your ROM collection if it is
 external), clone this repository there, `make build`, set `PUID`/`PGID` in `.env` if the user

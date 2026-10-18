@@ -6,6 +6,20 @@ cd "$ROOT"
 compose=(docker compose --project-directory "$ROOT" -f "$ROOT/retropie/docker-compose.yml")
 if [[ $RETROPIE_EXTERNAL_ROMS == 1 ]]; then
     compose+=(-f "$ROOT/retropie/docker-compose.roms.yml")
+    # The collection is read-only, but EmulationStation saves favourites, play counts and edits to the
+    # gamelist.xml it read, which sits in the collection: mount those files (only those) writable.
+    gamelists=$ROOT/retropie/docker-compose.gamelists.yml
+    if [[ -d $RETROPIE_ROMS_DIR ]]; then
+        python3 - "$RETROPIE_ROMS_DIR" "$gamelists" <<'PY'
+import glob, json, os, sys
+roms, out = sys.argv[1], sys.argv[2]
+mounts = [{"type": "bind", "source": f, "target": "/data/roms/" + os.path.relpath(f, roms), "read_only": False}
+          for f in sorted(glob.glob(os.path.join(glob.escape(roms), "*", "gamelist.xml"))) if os.access(f, os.W_OK)]
+# JSON is valid YAML for Compose; an empty volume list is fine
+open(out, "w").write(json.dumps({"services": {"retropie-service": {"volumes": mounts}}}, indent=1) + "\n")
+PY
+        compose+=(-f "$gamelists")
+    fi
 fi
 if [[ -f $ROOT/retropie/docker-compose.override.yml ]]; then
     compose+=(-f "$ROOT/retropie/docker-compose.override.yml")
