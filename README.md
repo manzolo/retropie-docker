@@ -25,17 +25,26 @@ which mode it will use and what is missing.
 
 ## Quick start
 
+The same steps for every GPU: the graphics mode is chosen at each start, nothing to configure.
+
+| Your GPU | Before you start | Mode `make doctor` reports |
+|---|---|---|
+| Intel, AMD, or none (virtual machine) | nothing: Mesa is inside the image | `mesa` (hardware acceleration, or software rendering without `/dev/dri/renderD*`) |
+| NVIDIA | the host driver plus the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), registered in Docker ([below](#details)) | `nvidia` (without the toolkit: `mesa`, software rendering, with a warning) |
+
 ```bash
 git clone https://github.com/manzolo/retropie-docker.git && cd retropie-docker
+make doctor                     # what is missing, and which GPU mode (nvidia/mesa) and desktop (wayland/x11) will be used
 make build                      # compiles RetroPie from source inside Docker: hours, not minutes
-make test                       # clean image, GPU injection, data persistence, deliberate failures
+make test                       # clean image, graphics (NVIDIA injection, or Mesa rendering), data persistence
 mkdir -p data/roms/snes data/BIOS   # add your own ROMs and BIOS files here
-make retropie-start             # EmulationStation on your desktop · retropie-logs · retropie-stop
+make start                      # EmulationStation on your desktop · make logs · make stop
 ```
 
-`make doctor` checks all of this. Needs Docker with Compose v2, a Wayland (with Xwayland) or X11
-desktop, a controller and, for NVIDIA GPUs only, the
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). `make wizard` does the same interactively; `make help` lists everything.
+Needs Docker with Compose v2, a Wayland (with Xwayland) or X11 desktop and a controller (the
+keyboard works too). To force a mode, set `RETROPIE_GPU=nvidia|mesa` or
+`RETROPIE_SESSION=wayland|x11` in `.env`. `make wizard` does the same steps interactively;
+`make help` lists everything.
 
 | Your files | Where |
 |---|---|
