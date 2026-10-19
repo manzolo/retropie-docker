@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-.PHONY: start stop enter logs help doctor images rollback data-backup packages packages-choose packages-check update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
+.PHONY: start stop enter logs help doctor images rollback data-backup packages packages-choose packages-check outdated update update-clear build build-stack retropie-build wizard test test-desktop test-static check-public check-nvidia check-env status retropie-start retropie-stop retropie-enter retropie-logs retropie-debug-display retropie-push
 # Document public targets with ## and sections with ##@; the first target is shown.
 help: ## Show this help
 	@color=0; \
@@ -20,7 +20,7 @@ help: ## Show this help
 	    printf "\n%sExamples%s\n", bold, reset; \
 	    print "  First run:        make doctor && make wizard"; \
 	    print "  Manual setup:     make packages-choose && make build && make start"; \
-	    print "  Update emulators: make update PKG=\"lr-vice dolphin\""; \
+	    print "  Update emulators: make outdated, then make update PKG=\"lr-vice dolphin\""; \
 	    print "\nTip: set NO_COLOR=1 to disable colors.\n"; \
 	}' $(MAKEFILE_LIST)
 
@@ -45,6 +45,8 @@ packages-choose: ## Choose emulators interactively; write packages.local
 	@./scripts/packages.sh choose
 packages-check: ## Validate names against the pinned RetroPie-Setup
 	@./scripts/packages.sh check
+outdated: ## What changed upstream since the build: emulators, RetroPie-Setup, base (builds nothing)
+	@./scripts/outdated.sh
 update: ## Rebuild selected packages from upstream; requires PKG="a b"
 	@test -n '$(PKG)' || { echo 'Usage: make update PKG="lr-vice dolphin"'; exit 1; }
 	@./scripts/packages.sh update $(PKG)

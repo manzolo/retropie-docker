@@ -26,8 +26,10 @@ portable data directory. The README is the reference for users; this file is for
 - `retropie/Dockerfile`: stages `graphics` (loaders + Mesa), `diagnostics` (adds
   `gpu-check`), `retropie` (final). The build context is the repository root.
 - `RETROPIE_SETUP_REF` pins RetroPie-Setup to a commit. Bump it on purpose, rebuild, run
-  `make test`. RetroPie-Setup master can break (2026-10: `lr-flycast`'s stale gcc14 patch;
-  `lr-flycast-dev` is used instead, as recommended by the RetroPie maintainers).
+  `make test`. `make outdated` (`scripts/outdated.sh`, read-only) shows what a bump, a new base
+  digest or `make update` would bring; both pins invalidate every layer after them.
+  RetroPie-Setup master can break (2026-10: `lr-flycast`'s stale gcc14 patch; `lr-flycast-dev`
+  is used instead, as recommended by the RetroPie maintainers).
 - One `RUN` per package after `basic_install`, so a failing package keeps the layers already
   built. A full build compiles from source and takes hours; run it in the background.
 - RetroPie-Setup compiles with `-march=native`: the image is tied to the CPU family that built

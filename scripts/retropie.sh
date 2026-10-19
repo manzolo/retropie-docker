@@ -39,10 +39,10 @@ case ${1:-help} in
             [[ -f packages.local ]] && echo "Emulators from packages.local: $(./scripts/packages.sh list | tr '\n' ' ')"
             [[ -f packages.update ]] && echo "Updates on top: $(grep -vE '^[[:space:]]*(#|$)' packages.update | tr '\n' ' ')"
         fi
-        ./scripts/images.sh before-build
+        old=$(./scripts/images.sh current)
         docker build -f "$dockerfile" --build-arg "CONTAINER_USERNAME=$CONTAINER_USERNAME" \
             --build-arg "CONTAINER_UID=$PUID" --build-arg "CONTAINER_GID=$PGID" -t "$RETROPIE_IMAGE" . 
-        ./scripts/images.sh after-build ;;
+        ./scripts/images.sh after-build "$old" ;;
     start)
         if [[ $RETROPIE_SESSION == wayland && ! -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]]; then
             echo "Missing Wayland socket $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" >&2; exit 1
