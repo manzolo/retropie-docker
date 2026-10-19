@@ -74,7 +74,8 @@ case ${1:-help} in
         # (make stop) is fine; started again meanwhile is too: docker rm without -f refuses a running one.
         cid=${2:?container ID}
         docker wait "$cid" >/dev/null 2>&1 || exit 0
-        mkdir -p logs && docker logs "$cid" > "logs/$CONTAINER_NAME-last.log" 2>&1 || true
+        mkdir -p logs
+        docker logs "$cid" > "logs/$CONTAINER_NAME-last.log" 2>&1 || true
         docker rm "$cid" >/dev/null 2>&1 || true ;;
     stop) "${compose[@]}" down ;;
     enter) "${compose[@]}" exec --user "$PUID:$PGID" retropie-service /bin/bash ;;

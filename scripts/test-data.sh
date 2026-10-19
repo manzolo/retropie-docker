@@ -129,7 +129,7 @@ grep -q reap-probe "logs/$name-last.log" || { echo 'FAIL: the output of the exit
 CONTAINER_NAME=$name ./scripts/retropie.sh reap "$old" || { echo 'FAIL: reap of a container already removed failed'; exit 1; }
 # a running container: reap keeps waiting (timeout), it never removes it
 new=$("${detached[@]}" /bin/bash -c 'sleep 30')
-CONTAINER_NAME=$name timeout 5 ./scripts/retropie.sh reap "$new" && status=0 || status=$?
+status=0; CONTAINER_NAME=$name timeout 5 ./scripts/retropie.sh reap "$new" || status=$?
 running=$(docker inspect --format '{{.State.Running}}' "$new" 2>/dev/null || echo gone)
 docker rm -f "$new" >/dev/null; rm -f "logs/$name-last.log"
 [[ $status == 124 && $running == true ]] || { echo "FAIL: reap did not keep waiting on a running container ($status, $running)"; exit 1; }
