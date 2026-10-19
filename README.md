@@ -44,7 +44,8 @@ make start                      # EmulationStation on your desktop · make logs 
 Needs Docker with Compose v2, a Wayland (with Xwayland) or X11 desktop and a controller (the
 keyboard works too). To force a mode, set `RETROPIE_GPU=nvidia|mesa` or
 `RETROPIE_SESSION=wayland|x11` in `.env`. `make wizard` does the same steps interactively;
-`make help` lists everything.
+`make help` lists everything. Quitting EmulationStation removes the container, as `make stop`
+does (your data lives in `data/`, nothing is lost); its output stays in `logs/<container>-last.log`.
 
 | Your files | Where |
 |---|---|
@@ -300,7 +301,13 @@ rebuilt on top of the image while everything else comes from the cache, so it ta
 `make outdated` shows which packages have something new (see *Keeping up to date*).
 Later builds keep the updated layers. The image grows by the size of the old copies until a fresh
 build (`make update-clear`, then `docker build --no-cache` or a bumped `RETROPIE_SETUP_REF`).
-`/etc/retropie-docker/updates` in the image lists what was updated and when. Updating packages
+`/etc/retropie-docker/updates` in the image lists what was updated and when.
+
+Dolphin (GameCube and Wii) has no exit combination of its own: add one for your controller in
+`data/configs/gc/Config/Hotkeys.ini`, for example `General/Stop = MODE | (SELECT & START)` and the
+same for `General/Exit` (PS/Home button, or Select and Start together), and `ConfirmStop = False`
+under `[Interface]` in `Dolphin.ini` so it quits without asking. The button names are those of the
+`Device` line in that file; on Wii, Select and Start are also − and +, briefly pressed in game. Updating packages
 from the RetroPie menu inside the running container is lost when the container is recreated.
 
 The **RetroPie menu inside EmulationStation** is mostly terminal programs (RetroPie-Setup, config

@@ -118,3 +118,19 @@ echo 'PASS: gamelist edits made in the container reach the collection'
 extra=$(find "$fixture/external-roms" -type f ! -path "$fixture/external-roms/fixture.sfc" ! -path "$fixture/external-roms/snes/gamelist.xml")
 [[ -z $extra ]] || { echo "FAIL: files appeared in the read-only collection: $extra"; exit 1; }
 echo 'PASS: external ROM fixture unchanged; all portable-data tests'
+# Quitting EmulationStation removes the container (retropie.sh reap, started by make start), keeping
+# its output in logs/; a container already removed by make stop is no error, a running one is never removed.
+name=retropie-reap-test-$$
+detached=(docker run -d --runtime=runc -e "PUID=$PUID" -e "PGID=$PGID" --name "$name" "$image")
+old=$("${detached[@]}" /bin/bash -c 'echo reap-probe')
+CONTAINER_NAME=$name ./scripts/retropie.sh reap "$old"
+docker inspect "$old" >/dev/null 2>&1 && { echo 'FAIL: the exited container was not removed'; docker rm -f "$old" >/dev/null; exit 1; }
+grep -q reap-probe "logs/$name-last.log" || { echo 'FAIL: the output of the exited container was not kept'; exit 1; }
+CONTAINER_NAME=$name ./scripts/retropie.sh reap "$old" || { echo 'FAIL: reap of a container already removed failed'; exit 1; }
+# a running container: reap keeps waiting (timeout), it never removes it
+new=$("${detached[@]}" /bin/bash -c 'sleep 30')
+CONTAINER_NAME=$name timeout 5 ./scripts/retropie.sh reap "$new" && status=0 || status=$?
+running=$(docker inspect --format '{{.State.Running}}' "$new" 2>/dev/null || echo gone)
+docker rm -f "$new" >/dev/null; rm -f "logs/$name-last.log"
+[[ $status == 124 && $running == true ]] || { echo "FAIL: reap did not keep waiting on a running container ($status, $running)"; exit 1; }
+echo 'PASS: an exited container is removed with its output kept; a running one is left alone'
