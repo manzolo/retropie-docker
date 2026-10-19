@@ -64,7 +64,19 @@ case ${1:-help} in
             ./scripts/data-backup.sh "before-${image_id:7:12}"
         fi
         [[ -n $image_id ]] && printf '%s\n' "$image_id" > "$marker"
-        "${compose[@]}" up -d ;;
+        "${compose[@]}" up -d
+        # Quitting EmulationStation ends the container: remove it then, as make stop would, instead of
+        # leaving it stopped. A detached watcher on the host waits for this container (by ID) to exit.
+        cid=$(docker inspect --format '{{.Id}}' "$CONTAINER_NAME")
+        setsid nohup ./scripts/retropie.sh reap "$cid" >/dev/null 2>&1 < /dev/null & ;;
+    reap)
+        # reap ID: wait for the container to exit, keep its output in logs/, remove it. Gone already
+        # (make stop) is fine; started again meanwhile is too: docker rm without -f refuses a running one.
+        cid=${2:?container ID}
+        docker wait "$cid" >/dev/null 2>&1 || exit 0
+        mkdir -p logs
+        docker logs "$cid" > "logs/$CONTAINER_NAME-last.log" 2>&1 || true
+        docker rm "$cid" >/dev/null 2>&1 || true ;;
     stop) "${compose[@]}" down ;;
     enter) "${compose[@]}" exec --user "$PUID:$PGID" retropie-service /bin/bash ;;
     logs) "${compose[@]}" logs -f ;;
@@ -74,5 +86,5 @@ case ${1:-help} in
         resolve_platform
         printf 'RETROPIE_GPU=%s\nRETROPIE_SESSION=%s\n' "$RETROPIE_GPU" "$RETROPIE_SESSION"
         printf 'DISPLAY=%s\nWAYLAND_DISPLAY=%s\nXDG_RUNTIME_DIR=%s\nXAUTHORITY=%s\n' "${DISPLAY:-}" "$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR" "$XAUTHORITY" ;;
-    *) echo 'Usage: retropie.sh {build|start|stop|enter|logs|config|push|debug-display}' >&2; exit 1 ;;
+    *) echo 'Usage: retropie.sh {build|start|stop|enter|logs|config|push|debug-display|reap ID}' >&2; exit 1 ;;
 esac
