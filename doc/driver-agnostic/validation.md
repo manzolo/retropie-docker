@@ -72,6 +72,25 @@ docker image ls --filter 'reference=manzolo/retropie:latest-nvidia*' --filter 'r
 [Exact image list](legacy-images.txt). All twelve images were left intact. Removal
 is a separate manual action for Andrea. No registry push was performed.
 
+## Incremental update — 2026-10-19
+
+`make outdated` (read-only, about 6 s) reported `dolphin` behind its `master`
+(`2282f5f9` -> `1822e385`), `lr-beetle-psx` and `lr-fbneo` behind but part of
+`basic_install`, `scummvm` pinned to tag `v2026.3.0`, RetroPie-Setup two commits ahead
+(only `lr-picodrive`, ARM asm) and a newer `ubuntu:24.04` digest. Only the first was taken:
+
+```bash
+make update PKG="dolphin"   # exit 0
+make outdated               # dolphin no longer listed as newer
+make test                   # exit 0
+```
+
+Every layer before the update came from the cache; the single `RUN : update … dolphin`
+layer took 581 s. `:previous` moved to the image that was running before, as it does after a
+successful build. An earlier full build, interrupted on purpose, had left `:previous` equal to
+`:latest`; `scripts/images.sh` now moves it only after a build that succeeds and changes
+`:latest`, and `make test-static` checks both cases.
+
 ## Manual limits
 
 The host driver was not upgraded/downgraded during this task. The clean-image plus

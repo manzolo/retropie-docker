@@ -115,27 +115,69 @@ if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
     cleanup_images() { docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}' | xargs -r docker rmi -f >/dev/null 2>&1 || true; }
     cleanup_images
     fake_build() { tar -cf - --files-from /dev/null | docker import -c "LABEL n=$1" - "$repo:latest" >/dev/null; }
-    ./scripts/images.sh before-build; fake_build one; ./scripts/images.sh after-build >/dev/null
-    first=$(docker image inspect -f '{{.Id}}' "$repo:latest")
-    sleep 1; ./scripts/images.sh before-build; fake_build two; ./scripts/images.sh after-build >/dev/null
-    second=$(docker image inspect -f '{{.Id}}' "$repo:latest")
+    build_as() { local old; old=$(./scripts/images.sh current); fake_build "$1"; ./scripts/images.sh after-build "$old" >/dev/null; }
+    build_as one; first=$(docker image inspect -f '{{.Id}}' "$repo:latest")
+    sleep 1; build_as two; second=$(docker image inspect -f '{{.Id}}' "$repo:latest")
     [[ $(docker image inspect -f '{{.Id}}' "$repo:previous") == "$first" ]] || fail 'build did not keep the old image as :previous'
+    # a build that fails after starting, and one that rebuilds the same image, must leave :previous alone
+    ./scripts/images.sh current >/dev/null
+    sleep 1; ./scripts/images.sh after-build "$(./scripts/images.sh current)" >/dev/null
+    [[ $(docker image inspect -f '{{.Id}}' "$repo:previous") == "$first" ]] || fail 'a failed or unchanged build moved :previous'
     ./scripts/images.sh rollback >/dev/null
     [[ $(docker image inspect -f '{{.Id}}' "$repo:latest") == "$first" && $(docker image inspect -f '{{.Id}}' "$repo:previous") == "$second" ]] \
         || fail 'rollback did not swap :latest and :previous'
     ./scripts/images.sh rollback >/dev/null
     [[ $(docker image inspect -f '{{.Id}}' "$repo:latest") == "$second" ]] || fail 'a second rollback did not come back'
-    for n in 3 4; do sleep 1; ./scripts/images.sh before-build; fake_build "$n"; ./scripts/images.sh after-build >/dev/null; done
+    for n in 3 4; do sleep 1; build_as "$n"; done
     dated=$(docker image ls "$repo" --format '{{.Tag}}' | grep -cE '^[0-9]{8}-[0-9]{6}-')
     [[ $dated == 2 ]] || fail "expected the newest 2 dated versions, found $dated"
     echo 'PASS: builds keep :previous and dated versions, rollback swaps both ways, old versions pruned'
+    echo 'PASS: a failed or unchanged build leaves :previous alone'
     data=$(mktemp -d); mkdir -p "$data/saves" "$data/roms/snes"; echo save > "$data/saves/a.srm"; echo rom > "$data/roms/snes/b.sfc"
     out=$(RETROPIE_DATA_DIR=$data RETROPIE_BACKUP_DIR=$data-bk ./scripts/data-backup.sh test)
     archive=$(ls "$data-bk"/data-*-test.tar.gz)
     tar -tzf "$archive" | grep -q 'saves/a.srm' || fail "data backup misses the saves: $out"
     tar -tzf "$archive" | grep -q 'roms' && fail 'data backup contains ROMs'
-    rm -rf "$data" "$data-bk"; cleanup_images; unset RETROPIE_IMAGE RETROPIE_KEEP_IMAGES
+    rm -rf "$data" "$data-bk"
     echo 'PASS: data backup keeps saves and leaves ROMs out'
+    # make outdated, offline: an image whose retropie.pkg files point at local repositories, one behind
+    # its branch, one aligned, one on a tag, one unreachable; a RetroPie-Setup one commit ahead.
+    up=$(mktemp -d)
+    commit_in() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; git -C "$1" rev-parse HEAD; }
+    for r in a b setup; do git init -q -b master "$up/$r"; done
+    a=$(commit_in "$up/a" one); git -C "$up/a" tag v1
+    b_old=$(commit_in "$up/b" one); b_new=$(commit_in "$up/b" two)
+    s_old=$(commit_in "$up/setup" one)
+    mkdir -p "$up/setup/scriptmodules/libretrocores" "$up/setup/scriptmodules/emulators"
+    touch "$up/setup/scriptmodules/libretrocores/lr-behind.sh" "$up/setup/scriptmodules/emulators/other.sh"
+    git -C "$up/setup" add -A; commit_in "$up/setup" modules >/dev/null
+    fake_outdated() {   # fake_outdated COMMIT_OF_lr-behind
+        local root=$up/img/$1 d
+        pkg() { d=$root/opt/retropie/$1; mkdir -p "$d"
+            printf 'pkg_origin="source"\npkg_repo_type="git"\npkg_repo_url="%s"\npkg_repo_branch="%s"\npkg_repo_commit="%s"\n' "$2" "$3" "$4" > "$d/retropie.pkg"; }
+        pkg libretrocores/lr-behind "$up/b" master "$1"
+        pkg emulators/aligned "$up/a" master "$a"
+        pkg emulators/tagged "$up/a" v1 "$a"
+        pkg emulators/gone "$up/nowhere" master "$a"
+        mkdir -p "$root/home/$CONTAINER_USERNAME/RetroPie-Setup/.git" "$root/etc/retropie-docker"
+        echo "$s_old" > "$root/home/$CONTAINER_USERNAME/RetroPie-Setup/.git/HEAD"
+        echo lr-behind > "$root/etc/retropie-docker/packages"
+        tar -C "$root" -cf - . | docker import - "$repo:latest" >/dev/null
+        (cd "$tmpd" && printf 'lr-behind\n' > packages.local && RETROPIE_SETUP_URL=$up/setup OUTDATED_BASE=0 ./scripts/outdated.sh)
+    }
+    cp scripts/outdated.sh "$tmpd/scripts/"
+    out=$(CONTAINER_USERNAME=${CONTAINER_USERNAME:-manzolo} fake_outdated "$b_old") || fail "outdated failed: $out"
+    for want in "lr-behind .*master ${b_old:0:8} -> ${b_new:0:8}" 'tagged .*tag v1' 'gone .*not reachable' 'Up to date: 1$' \
+        'master is 1 commit\(s\) ahead' 'Installed modules changed: lr-behind' 'Other modules changed \(not installed\): other' \
+        '^Suggested: make update PKG="lr-behind"$'; do
+        grep -qE -- "$want" <<<"$out" || fail "outdated output lacks /$want/: $out"
+    done
+    grep -qE '^ +aligned ' <<<"$(sed -n '/^  Newer upstream/,/^  [A-Z]/p' <<<"$out")" && fail "an aligned package is reported newer: $out"
+    out=$(CONTAINER_USERNAME=${CONTAINER_USERNAME:-manzolo} fake_outdated "$b_new") || fail "outdated failed: $out"
+    grep -q 'Suggested: make update' <<<"$out" && fail "outdated suggests an update with everything aligned: $out"
+    grep -q 'Nothing to update with make update' <<<"$out" || fail "outdated does not say nothing is to update: $out"
+    rm -rf "$up" "$tmpd/packages.local"; cleanup_images; unset RETROPIE_IMAGE RETROPIE_KEEP_IMAGES
+    echo 'PASS: make outdated finds the package behind upstream, the tag, the unreachable one and the changed modules'
 else
     echo 'SKIP: image versions (no docker daemon)'
 fi

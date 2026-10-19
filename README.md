@@ -200,9 +200,10 @@ Details, measured toolkit behaviour and limits:
 <details>
 <summary><b>Versions, rollback and data backups</b></summary>
 
-`:latest` is what runs. Every build also tags the image it replaced as `:previous` and the new one
-with its date and commit (`:20261018-123000-7494db3`; the newest three are kept,
-`RETROPIE_KEEP_IMAGES` to change). If a new image misbehaves:
+`:latest` is what runs. Every successful build tags the image it replaced as `:previous` and the
+new one with its date and commit (`:20261018-123000-7494db3`; the newest three are kept,
+`RETROPIE_KEEP_IMAGES` to change). A build that fails, is interrupted or produces the same image
+leaves `:previous` where it was. If a new image misbehaves:
 
 ```bash
 make images                 # versions on this machine
@@ -215,6 +216,38 @@ into `backups/` (ignored by git); `make data-backup` does it by hand. To restore
 container, extract the archive over the data directory. The base image is pinned by digest and
 RetroPie-Setup by commit, but emulator sources and Ubuntu packages are fetched at build time:
 a rebuild is not bit-for-bit reproducible, which is why the previous image is kept.
+</details>
+
+<details>
+<summary><b>Keeping up to date</b></summary>
+
+An update costs what it invalidates. Docker reuses a layer only if it and every layer before it
+are unchanged, and the image is stacked: the Ubuntu base, then RetroPie-Setup with
+`basic_install`, then one layer per emulator. So there are three kinds of update:
+
+| What changed upstream | How to take it | Cost |
+|---|---|---|
+| An emulator on a moving branch (`master`) | `make update PKG="dolphin"` | minutes |
+| RetroPie-Setup (`RETROPIE_SETUP_REF`) | bump the commit in `retropie/Dockerfile`, `make build` | hours |
+| The Ubuntu base (digest in `FROM`) | replace the digest, `make build` | hours |
+
+`make outdated` tells you which of these applies, in seconds and without building or pulling
+anything:
+
+```bash
+make outdated                 # what is newer upstream than the image
+make update PKG="dolphin"     # the line it suggests
+```
+
+It compares the commit each emulator was built from (RetroPie-Setup records it in the image) with
+its branch upstream, lists the commits RetroPie-Setup gained and which installed modules they
+touch, and checks whether the registry serves a newer base. Emulators that RetroPie-Setup pins to
+a tag (RetroArch, ScummVM) are shown as pinned: `make update` would rebuild the same version, they
+move only with a RetroPie-Setup bump. Cores that come with `basic_install` are not in your package
+list, so `make update` refuses them: append them to `packages.local` to build them on top, or let
+the next full rebuild take them. Leave the two full rebuilds for when they bring something you
+want, a fix in a module you use or Ubuntu security updates, and run them overnight; the previous
+image stays available for `make rollback`.
 </details>
 
 <details>
@@ -264,6 +297,7 @@ go in `data/BIOS/` as the RetroPie documentation of each system says.
 at build time, so updating one means rebuilding only that layer. `make update PKG="lr-vice dolphin"`
 records the packages with a timestamp in `packages.update` (ignored by git) and builds: they are
 rebuilt on top of the image while everything else comes from the cache, so it takes minutes.
+`make outdated` shows which packages have something new (see *Keeping up to date*).
 Later builds keep the updated layers. The image grows by the size of the old copies until a fresh
 build (`make update-clear`, then `docker build --no-cache` or a bumped `RETROPIE_SETUP_REF`).
 `/etc/retropie-docker/updates` in the image lists what was updated and when. Updating packages
@@ -296,7 +330,8 @@ recreated: to keep an emulator, add it to your package list, to update one use `
 - `make test-static` runs what CI runs: syntax, shellcheck, the Dockerfile installs no driver and
   pins RetroPie-Setup, its package block matches `packages.default`, a `packages.local` drives
   its own Dockerfile, bad or unknown package names are refused, retired targets explain
-  themselves, Compose renders, and in Mesa/X11 mode carries nothing NVIDIA and no Wayland socket. The GitHub workflow
+  themselves, a failed or unchanged build leaves `:previous` alone, `make outdated` finds the one
+  package behind its upstream branch in a fake image, Compose renders, and in Mesa/X11 mode carries nothing NVIDIA and no Wayland socket. The GitHub workflow
   also builds the diagnostics stage and checks that without a GPU the image says so (exit 2),
   and once a month (or on demand) builds the whole image and runs the data tests. GPU tests need
   a real machine: CI has no NVIDIA card and no Wayland desktop.
