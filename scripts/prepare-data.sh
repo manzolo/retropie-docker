@@ -32,3 +32,6 @@ ln -sfn /opt/retropie/configs/gc/local "$seed/home-data/dolphin-emu"
 mkdir -p "$seed/saves" "$seed/states"
 # Keep saves outside the ROM directory, including with read-only external ROMs.
 sed -i -E 's|^[# ]*savefile_directory =.*|savefile_directory = "/data/saves"|; s|^[# ]*savestate_directory =.*|savestate_directory = "/data/states"|' "$seed/configs/all/retroarch.cfg"
+# RetroPie writes some configs 0600 for the build user (UID 1000); the entrypoint copies the seed
+# as the PUID user, which may differ. The seed holds no secrets: make all of it readable.
+chmod -R a+rX "$seed"
