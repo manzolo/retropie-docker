@@ -22,7 +22,7 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # check-public scans every ref
       - name: Static checks
@@ -35,7 +35,7 @@ jobs:
   diagnostics:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the graphics + diagnostics stages (no emulators)
         run: docker build --target diagnostics -t retropie-diagnostics -f retropie/Dockerfile .
       - name: Image contains no NVIDIA driver files
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Free disk space on the runner
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
