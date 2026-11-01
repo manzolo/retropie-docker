@@ -78,7 +78,8 @@ RUN /usr/local/bin/prepare-data && \
     for p in $(cat /etc/retropie-docker/packages); do \
         ls -d /opt/retropie/*/"$p" >/dev/null 2>&1 || { echo "package $p did not install"; exit 1; }; \
     done && \
-    test -z "$(find /usr /opt -name 'libnvidia-*' -o -name nvidia-smi)"
+    test -z "$(find /usr /opt -name 'libnvidia-*' -o -name nvidia-smi)" && \
+    test -z "$(find /usr/local/share/retropie-defaults ! -perm -o=r)"
 # The RetroPie menu's terminal programs open in a visible xterm (retropie-menu-launch); kept after
 # the packages so adding it does not rebuild them.
 RUN apt-get update && apt-get install -y --no-install-recommends xterm fonts-dejavu-core && \
